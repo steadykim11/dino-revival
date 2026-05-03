@@ -1,0 +1,16 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// D1: 헬스체크용 임시 모델. D2에서 실제 스키마로 교체.
+model HealthCheck {
+  id        String   @id @default(uuid())
+  message   String
+  createdAt DateTime @default(now())
+}
