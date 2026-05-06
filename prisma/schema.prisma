@@ -1,3 +1,7 @@
+// =============================================================================
+// Generator & Datasource
+// =============================================================================
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,9 +12,326 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// D1: 헬스체크용 임시 모델. D2에서 실제 스키마로 교체.
-model HealthCheck {
-  id        String   @id @default(uuid())
-  message   String
-  createdAt DateTime @default(now())
+// =============================================================================
+// Enums
+// =============================================================================
+
+enum DinoSpecies {
+  TYRANNO    // 티라노 계열 (MVP 유일)
+  BRACHIO    // 용각류 (Phase 2)
+  TRICERA    // 각룡류 (Phase 2)
+}
+
+enum DinoStage {
+  EGG         // 알
+  HATCHLING   // 유년기
+  ADULT       // 성체
+}
+
+enum MissionType {
+  DAILY       // 일반 일일 미션
+  DUNGEON     // 던전 미션
+}
+
+enum MissionTimeSlot {
+  DAY         // 낮 (10:00~18:00)
+  EVENING     // 저녁 (18:00~24:00)
+  ANYTIME     // 종일
+}
+
+enum MissionCategory {
+  COOLING     // 냉방
+  HEATING     // 난방
+  LIGHTING    // 조명
+  STANDBY     // 대기전력
+  LAUNDRY     // 세탁
+  KITCHEN     // 주방
+  ETC         // 기타
+}
+
+// =============================================================================
+// 1. User — 사용자 프로필
+// =============================================================================
+
+model User {
+  /// Supabase auth.users.id 와 동일한 UUID
+  id                String   @id @db.Uuid
+
+  /// 닉네임 (2~12자, 시스템 내 고유)
+  nickname          String   @unique @db.VarChar(12)
+
+  /// 행정안전부 표준 시·군·구 코드 (5자리, 예: "11680" = 강남구)
+  regionCode        String   @db.VarChar(5)
+
+  /// 더미 사용자 여부 (시드 데이터 식별용)
+  isDummy           Boolean  @default(false)
+
+  /// 닉네임 마지막 변경 시각 (변경 주기 제한용)
+  nicknameChangedAt DateTime?
+  /// 동네 마지막 변경 시각
+  regionChangedAt   DateTime?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  guildId           String?  @db.Uuid
+  guild             Guild?   @relation(fields: [guildId], references: [id], onDelete: SetNull)
+  dino              Dino?
+  missions          Mission[]
+  missionLogs       MissionLog[]
+
+  @@index([regionCode])
+  @@index([guildId])
+  @@index([isDummy])
+  @@map("users")
+}
+
+// =============================================================================
+// 2. Dino — 사용자별 공룡 (1:1)
+// =============================================================================
+
+model Dino {
+  id                String      @id @default(uuid()) @db.Uuid
+
+  userId            String      @unique @db.Uuid
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  species           DinoSpecies @default(TYRANNO)
+  stage             DinoStage   @default(EGG)
+
+  /// 누적 클린에너지 (진화 임계값 비교 기준)
+  totalCleanEnergy  Int         @default(0)
+
+  /// 친밀도 (0~100, 애플리케이션 레이어에서 cap)
+  intimacy          Int         @default(0)
+
+  /// 누적 CO2 감축량 (kg, 통계용)
+  totalCo2Reduced   Decimal     @default(0) @db.Decimal(10, 3)
+
+  /// EGG → HATCHLING 진화 시각 (NULL이면 아직 알)
+  hatchedAt         DateTime?
+
+  /// HATCHLING → ADULT 진화 시각
+  evolvedAt         DateTime?
+
+  updatedAt         DateTime    @updatedAt
+
+  @@map("dinos")
+}
+
+// =============================================================================
+// 3. Guild — 동네 단위 길드
+// =============================================================================
+
+model Guild {
+  id                String   @id @default(uuid()) @db.Uuid
+
+  /// 시·군·구 코드 (User.regionCode와 매칭)
+  regionCode        String   @unique @db.VarChar(5)
+
+  /// 표시명 (예: "강남구")
+  displayName       String   @db.VarChar(50)
+
+  /// 시즌 점수 (길드원 누적 클린에너지 합계, 캐시값)
+  seasonScore       Int      @default(0)
+
+  /// 마지막 점수 갱신 시각
+  scoreUpdatedAt    DateTime @default(now())
+
+  createdAt         DateTime @default(now())
+
+  // Relations
+  members           User[]
+
+  @@index([seasonScore(sort: Desc)])
+  @@map("guilds")
+}
+
+// =============================================================================
+// 4. MissionPool — 미션 마스터 데이터
+// =============================================================================
+
+model MissionPool {
+  id                String           @id @default(uuid()) @db.Uuid
+
+  /// 미션 제목 (예: "에어컨 1℃ 올리기")
+  title             String           @db.VarChar(100)
+
+  /// 상세 설명·수행 가이드
+  description       String           @db.Text
+
+  category          MissionCategory
+  timeSlot          MissionTimeSlot
+
+  /// 기본 보상 클린에너지
+  baseReward        Int
+
+  /// 추정 절감량 (kWh, CO₂ 계산용)
+  estimatedKwh      Decimal          @db.Decimal(6, 3)
+
+  /// 활성화 여부 (운영 중 풀에서 제외 가능)
+  isActive          Boolean          @default(true)
+
+  createdAt         DateTime         @default(now())
+
+  // Relations
+  missions          Mission[]
+
+  @@index([category])
+  @@index([timeSlot])
+  @@index([isActive])
+  @@map("mission_pool")
+}
+
+// =============================================================================
+// 5. Mission — 사용자별 일일 미션 인스턴스
+// =============================================================================
+
+model Mission {
+  id                String       @id @default(uuid()) @db.Uuid
+
+  userId            String       @db.Uuid
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  poolId            String       @db.Uuid
+  pool              MissionPool  @relation(fields: [poolId], references: [id])
+
+  type              MissionType  @default(DAILY)
+
+  /// 던전 미션인 경우 던전 ID 참조
+  dungeonId         String?      @db.Uuid
+  dungeon           Dungeon?     @relation(fields: [dungeonId], references: [id], onDelete: SetNull)
+
+  /// 할당일 (자정 기준, 인덱스용)
+  assignedDate      DateTime     @db.Date
+
+  /// 만료 시각 (당일 자정+1)
+  expiresAt         DateTime
+
+  /// 완료 시각 (NULL이면 미완료)
+  completedAt       DateTime?
+
+  createdAt         DateTime     @default(now())
+
+  @@index([userId, assignedDate])
+  @@index([userId, completedAt])
+  @@index([dungeonId])
+  @@index([expiresAt])
+  @@map("missions")
+}
+
+// =============================================================================
+// 6. MissionLog — 미션 완료 영구 이력
+// =============================================================================
+
+model MissionLog {
+  id                          String       @id @default(uuid()) @db.Uuid
+
+  userId                      String       @db.Uuid
+  user                        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  missionId                   String       @db.Uuid
+
+  /// 완료 당시 미션 정보 스냅샷
+  missionTitle                String       @db.VarChar(100)
+  missionType                 MissionType
+  missionCategory             MissionCategory
+
+  /// 완료 시점 탄소강도 (gCO₂/kWh, 감사용)
+  carbonIntensityAtCompletion Decimal?     @db.Decimal(6, 2)
+
+  /// 지급 보상
+  cleanEnergyEarned           Int
+  co2ReducedKg                Decimal      @db.Decimal(10, 3)
+  intimacyEarned              Int
+
+  completedAt                 DateTime     @default(now())
+
+  @@index([userId, completedAt])
+  @@map("mission_logs")
+}
+
+// =============================================================================
+// 7. Dungeon — 던전 활성화 인스턴스
+// =============================================================================
+
+model Dungeon {
+  id                     String       @id @default(uuid()) @db.Uuid
+
+  /// 트리거 사유: "auto" (예비율 < 10%) | "manual" (관리자 수동)
+  triggerReason          String       @db.VarChar(20)
+
+  /// 활성화 여부 (단일 활성 보장은 애플리케이션 레이어)
+  isActive               Boolean      @default(true)
+
+  activatedAt            DateTime     @default(now())
+  expiresAt              DateTime
+  endedAt                DateTime?
+
+  /// 발령 시점 예비율 (트리거 근거, 감사용)
+  triggerReserveRate     Decimal?     @db.Decimal(5, 2)
+
+  /// 발령 시점 탄소강도
+  triggerCarbonIntensity Decimal?     @db.Decimal(6, 2)
+
+  // Relations
+  missions               Mission[]
+
+  @@index([isActive])
+  @@index([expiresAt])
+  @@map("dungeons")
+}
+
+// =============================================================================
+// 8. WorldSnapshot — 5분 단위 세계 상태 시계열
+// =============================================================================
+
+model WorldSnapshot {
+  /// 5분 단위 타임스탬프 (PK 겸 정렬키)
+  ts                     DateTime  @id @db.Timestamptz
+
+  /// 탄소강도 (gCO₂/kWh)
+  carbonIntensity        Decimal   @db.Decimal(6, 2)
+
+  /// 전력 공급예비율 (%)
+  supplyReserveRate      Decimal   @db.Decimal(5, 2)
+
+  /// 공급능력 (MW)
+  supplyCapacity         Int
+
+  /// 현재부하 (MW)
+  currentLoad            Int
+
+  /// 외기온도 (°C)
+  temperature            Decimal?  @db.Decimal(4, 1)
+
+  /// 발전믹스 (8개 발전원 MW, JSON)
+  /// { coal, gas, nuclear, hydro, oil, pumped, renewable, coalDomestic }
+  fuelMix                Json
+
+  /// fallback 여부 (직전값 재사용 시 true)
+  isFallback             Boolean   @default(false)
+
+  createdAt              DateTime  @default(now())
+
+  @@index([ts(sort: Desc)])
+  @@map("world_snapshots")
+}
+
+// =============================================================================
+// 9. LeaderboardCache — 리더보드 캐시 (Phase 2에서 Redis로 이전)
+// =============================================================================
+
+model LeaderboardCache {
+  /// 단일 행 캐시 (id = 'global' 고정)
+  id                     String   @id @default("global")
+
+  /// 전국 길드 랭킹 상위 20 (JSON)
+  /// [{ guildId, displayName, regionCode, seasonScore, rank }, ...]
+  topGuilds              Json
+
+  updatedAt              DateTime @updatedAt
+
+  @@map("leaderboard_cache")
 }
