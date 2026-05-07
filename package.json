@@ -12,13 +12,15 @@
     "db:migrate:deploy": "dotenv -e .env.local -- prisma migrate deploy",
     "db:studio": "dotenv -e .env.local -- prisma studio",
     "db:reset": "dotenv -e .env.local -- prisma migrate reset",
-    "db:seed": "dotenv -e .env.local -- tsx prisma/seed.ts"
+    "db:seed": "dotenv -e .env.local -- tsx prisma/seed.ts",
+    "test:kpx": "dotenv -e .env.local -- tsx scripts/test-kpx.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
     "date-fns": "^4.1.0",
+    "fast-xml-parser": "^5.7.3",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
