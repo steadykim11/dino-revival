@@ -1,0 +1,31 @@
+name: KPX Ingest
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Fetch KPX and POST to Vercel
+        env:
+          KPX_API_KEY: ${{ secrets.KPX_API_KEY }}
+          VERCEL_INGEST_URL: ${{ secrets.VERCEL_INGEST_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: pnpm tsx scripts/kpx-ingest.ts
