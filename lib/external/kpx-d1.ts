@@ -2,6 +2,7 @@ import z from "zod";
 import { fetchExternal, ExternalApiError } from "./http";
 import { XMLParser } from "fast-xml-parser";
 import { env } from "@/lib/env";
+import { parseKpxDateTime } from "../time/kst";
 
 const RawItemSchema = z.object({
   // "20260506112500" 형식 (YYYYMMDDhhmmss)
@@ -116,27 +117,4 @@ export async function fetchKpxD1(): Promise<KpxD1Result> {
     supplyReserveRate: item.suppReserveRate,
     operReserveRate: item.operReserveRate,
   };
-}
-
-// "20260507150500" (KST) → Date (UTC)
-function parseKpxDateTime(s: string): Date {
-  if (!/^\d{14}$/.test(s)) {
-    throw new ExternalApiError(
-      "KPX_D1",
-      "parse",
-      undefined,
-      `Invalid datetime: ${s}`,
-    );
-  }
-  const utcMs =
-    Date.UTC(
-      +s.slice(0, 4),
-      +s.slice(4, 6) - 1,
-      +s.slice(6, 8),
-      +s.slice(8, 10),
-      +s.slice(10, 12),
-      +s.slice(12, 14),
-    ) -
-    9 * 60 * 60 * 1000;
-  return new Date(utcMs);
 }

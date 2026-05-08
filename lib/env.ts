@@ -15,7 +15,7 @@ const EnvSchema = z.object({
   KPX_API_KEY: z.string().min(1),
 
   // Cron / Admin (D4 이후 사용)
-  CRON_SECRET: z.string().min(16).optional(),
+  CRON_SECRET: z.string().min(16),
   ADMIN_USER_IDS: z.string().optional(),
 });
 

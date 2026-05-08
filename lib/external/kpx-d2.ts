@@ -3,6 +3,7 @@ import { XMLParser } from "fast-xml-parser";
 import { fetchExternal, ExternalApiError } from "./http";
 import { env } from "@/lib/env";
 import { FuelMix, FuelMixSchema } from "@/lib/types/fuel-mix";
+import { parseKpxDateTime } from "../time/kst";
 
 const RawItemSchema = z.object({
   baseDateTime: z.string(), // 대문자 T (D1과 다름)
@@ -121,26 +122,4 @@ export async function fetchKpxD2(): Promise<KpxD2Result> {
     fuelMix: validated,
     marketDemand: item.fuelPwrTot,
   };
-}
-
-function parseKpxDateTime(s: string): Date {
-  if (!/^\d{14}$/.test(s)) {
-    throw new ExternalApiError(
-      "KPX_D2",
-      "parse",
-      undefined,
-      `Invalid datetime: ${s}`,
-    );
-  }
-  const utcMs =
-    Date.UTC(
-      +s.slice(0, 4),
-      +s.slice(4, 6) - 1,
-      +s.slice(6, 8),
-      +s.slice(8, 10),
-      +s.slice(10, 12),
-      +s.slice(12, 14),
-    ) -
-    9 * 60 * 60 * 1000;
-  return new Date(utcMs);
 }
