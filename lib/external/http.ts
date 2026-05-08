@@ -33,19 +33,38 @@ export async function fetchExternal(
   const { source, timeoutMs = 8000, retry = true, init } = opts;
 
   const attempt = async (): Promise<string> => {
+    const t0 = Date.now();
+    console.log(
+      `[${source}] fetch start`,
+      url.replace(/serviceKey=[^&]+/, "serviceKey=***"),
+    );
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const res = await fetch(url, { ...init, signal: controller.signal });
+      console.log(`[${source}] response received`, {
+        status: res.status,
+        elapsed: Date.now() - t0,
+      });
 
       if (!res.ok) {
         const body = await res.text().catch(() => "");
         throw new ExternalApiError(source, "http", res.status, body);
       }
 
-      return await res.text();
+      const text = await res.text();
+      console.log(`[${source}] body read complete`, {
+        bytes: text.length,
+        elapsed: Date.now() - t0,
+      });
+      return text;
     } catch (error) {
+      console.error(`[${source}] failed`, {
+        elapsed: Date.now() - t0,
+        error: error instanceof Error ? error.message : String(error),
+      });
       if (error instanceof ExternalApiError) throw error;
       if (error instanceof Error && error.name === "AbortError") {
         throw new ExternalApiError(source, "timeout");

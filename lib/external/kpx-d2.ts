@@ -56,7 +56,11 @@ export async function fetchKpxD2(): Promise<KpxD2Result> {
   const url =
     `${ENDPOINT}?serviceKey=${env.KPX_API_KEY}` + `&pageNo=1&numOfRows=1`;
 
-  const raw = await fetchExternal(url, { source: "KPX_D2", timeoutMs: 15000 });
+  const raw = await fetchExternal(url, {
+    source: "KPX_D2",
+    timeoutMs: 20000,
+    retry: false,
+  });
 
   let xml: unknown;
   try {

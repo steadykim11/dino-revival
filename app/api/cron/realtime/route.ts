@@ -3,7 +3,7 @@ import { isAuthorizedCron, unauthorizedResponse } from "@/lib/auth/cron";
 import { captureWorldSnapshot } from "@/lib/world/snapshot-writer";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30; // Pro 한도 60s 내. KPX 호출 + UPSERT는 보통 5초 미만.
+export const maxDuration = 60; // Pro 한도 60s 내. KPX 호출 + UPSERT는 보통 5초 미만.
 
 export async function GET(req: NextRequest) {
   if (!isAuthorizedCron(req)) return unauthorizedResponse();
