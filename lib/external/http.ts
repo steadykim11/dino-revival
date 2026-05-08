@@ -13,7 +13,7 @@ export class ExternalApiError extends Error {
     public readonly body?: string,
     cause?: unknown,
   ) {
-    super(`[$source] ${kind}${status ? ` ${status}` : ""}`);
+    super(`[${source}] ${kind}${status ? ` ${status}` : ""}`);
     this.name = "ExternalApiError";
     if (cause) this.cause = cause;
   }
