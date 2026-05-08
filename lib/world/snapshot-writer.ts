@@ -13,9 +13,9 @@ export type WriteResult =
  * KPX에서 데이터 가져와 WorldSnapshot에 UPSERT.
  *
  * 외부 API 실패 시 fallback 정책:
- *   직전 스냅샷이 있으면 새로 INSERT 하지 않음 (직전값이 그대로 유효).
- *   "isFallback 플래그를 유지"한다는 의미는 직전 스냅샷의 값이 계속 노출된다는 뜻.
- *   별도의 fallback 레코드를 만들지 않음 — DB가 깔끔하게 유지됨.
+ *   직전 스냅샷이 있으면 새로 INSERT 하지 않음 (직전값이 그대로 유효)
+ *   "isFallback 플래그를 유지"한다는 의미는 직전 스냅샷의 값이 계속 노출된다는 뜻
+ *   별도의 fallback 레코드를 만들지 않음 -> DB 깔끔하게 유지
  */
 export async function captureWorldSnapshot(): Promise<WriteResult> {
   let data: WorldSnapshotData;
