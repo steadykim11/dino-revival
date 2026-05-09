@@ -1,11 +1,13 @@
 name: KPX Ingest
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
+  # KPX가 Azure IP 차단으로 GitHub Actions에서 호출 불가.
+  # 본인 PC에서 scripts/run-ingest-loop.ps1로 실행.
+  # 클라우드 우회 경로가 마련되면 schedule 다시 활성화.
   workflow_dispatch:
 
 jobs:
+
   ingest:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -22,6 +24,18 @@ jobs:
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Diagnose KPX connectivity
+        run: |
+          echo "=== Runner IP ==="
+          curl -s https://api.ipify.org
+          echo ""
+          echo "=== TCP connectivity to KPX ==="
+          timeout 10 bash -c 'cat < /dev/tcp/openapi.kpx.or.kr/443' && echo "OPEN" || echo "BLOCKED/TIMEOUT"
+          echo "=== Direct curl ==="
+          curl -v --max-time 15 "https://openapi.kpx.or.kr/openapi/sukub5mMaxDatetime/getSukub5mMaxDatetime?serviceKey=$KPX_API_KEY&pageNo=1&numOfRows=1" || true
+        env:
+          KPX_API_KEY: ${{ secrets.KPX_API_KEY }}
 
       - name: Fetch KPX and POST to Vercel
         env:
