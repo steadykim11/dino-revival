@@ -1,8 +1,9 @@
 name: KPX Ingest
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
+  # KPX가 Azure IP 차단으로 GitHub Actions에서 호출 불가.
+  # 본인 PC에서 scripts/run-ingest-loop.ps1로 실행.
+  # 클라우드 우회 경로가 마련되면 schedule 다시 활성화.
   workflow_dispatch:
 
 jobs:
