@@ -1,7 +1,7 @@
 import z from "zod";
 import { fetchExternal, ExternalApiError } from "./http";
 import { XMLParser } from "fast-xml-parser";
-import { env } from "@/lib/env";
+import { externalEnv } from "@/lib/env";
 import { parseKpxDateTime } from "../time/kst";
 
 const RawItemSchema = z.object({
@@ -57,7 +57,7 @@ const xmlParser = new XMLParser({
 
 export async function fetchKpxD1(): Promise<KpxD1Result> {
   const url =
-    `${ENDPOINT}?serviceKey=${env.KPX_API_KEY}` + `&pageNo=1&numOfRows=1`;
+    `${ENDPOINT}?serviceKey=${externalEnv.KPX_API_KEY}` + `&pageNo=1&numOfRows=1`;
 
   const raw = await fetchExternal(url, {
     source: "KPX_D1",

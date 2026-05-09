@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { XMLParser } from "fast-xml-parser";
 import { fetchExternal, ExternalApiError } from "./http";
-import { env } from "@/lib/env";
+import { externalEnv } from "@/lib/env";
 import { FuelMix, FuelMixSchema } from "@/lib/types/fuel-mix";
 import { parseKpxDateTime } from "../time/kst";
 
@@ -54,7 +54,7 @@ const xmlParser = new XMLParser({
 
 export async function fetchKpxD2(): Promise<KpxD2Result> {
   const url =
-    `${ENDPOINT}?serviceKey=${env.KPX_API_KEY}` + `&pageNo=1&numOfRows=1`;
+    `${ENDPOINT}?serviceKey=${externalEnv.KPX_API_KEY}` + `&pageNo=1&numOfRows=1`;
 
   const raw = await fetchExternal(url, {
     source: "KPX_D2",
