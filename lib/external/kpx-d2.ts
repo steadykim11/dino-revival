@@ -54,12 +54,13 @@ const xmlParser = new XMLParser({
 
 export async function fetchKpxD2(): Promise<KpxD2Result> {
   const url =
-    `${ENDPOINT}?serviceKey=${externalEnv.KPX_API_KEY}` + `&pageNo=1&numOfRows=1`;
+    `${ENDPOINT}?serviceKey=${externalEnv.KPX_API_KEY}` +
+    `&pageNo=1&numOfRows=1`;
 
   const raw = await fetchExternal(url, {
     source: "KPX_D2",
     timeoutMs: 20000,
-    retry: false,
+    retry: true,
   });
 
   let xml: unknown;
