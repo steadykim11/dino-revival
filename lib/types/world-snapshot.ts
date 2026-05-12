@@ -25,6 +25,14 @@ export type WorldSnapshotData = {
 
 export type Battlefield = "PURIFIED" | "NORMAL" | "POLLUTED";
 
+export type ForecastLevel = "LOW" | "MEDIUM" | "HIGH";
+
+export interface TodayForecastResponse {
+  peakLoadGW: number;
+  level: ForecastLevel;
+  weeklyRank: number;
+}
+
 export interface WorldStateResponse {
   ts: string; // ISO
   world: {
@@ -52,4 +60,5 @@ export interface WorldStateResponse {
           triggerCarbonIntensity: number | null;
         };
       };
+  todayForecast: TodayForecastResponse | null;
 }

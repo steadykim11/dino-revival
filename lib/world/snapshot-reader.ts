@@ -7,6 +7,7 @@ import type {
   Battlefield,
 } from "@/lib/types/world-snapshot";
 import { classifyBattlefield } from "./battlefield";
+import { getTodayForecast } from "./peak-forecast";
 
 /**
  * Prisma Decimal | string | number | null 을 number로.
@@ -74,6 +75,8 @@ export async function readWorldState(): Promise<WorldStateResponse | null> {
   const carbonIntensity = toNum(snapshot.carbonIntensity);
   const battlefield: Battlefield = classifyBattlefield(carbonIntensity);
 
+  const todayForecast = getTodayForecast(now);
+
   return {
     ts: snapshot.ts.toISOString(),
     world: {
@@ -111,5 +114,6 @@ export async function readWorldState(): Promise<WorldStateResponse | null> {
           },
         }
       : { active: false, instance: null },
+    todayForecast,
   };
 }

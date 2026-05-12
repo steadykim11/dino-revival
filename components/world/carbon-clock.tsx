@@ -6,6 +6,7 @@ import { buildDisplayFuelMix } from "@/lib/world/fuel-mix-display";
 import { battlefieldLabel } from "@/lib/world/battlefield";
 import { relativeTimeKo } from "@/lib/time/relative";
 import { FuelMixBar } from "./fuel-mix-bar";
+import { ForecastLevel } from "@/lib/types/world-snapshot";
 
 export function CarbonClock() {
   const { data, status } = useWorldState();
@@ -29,7 +30,7 @@ export function CarbonClock() {
     );
   }
 
-  const { world, ts } = data;
+  const { world, ts, todayForecast } = data;
   const slices = buildDisplayFuelMix(world.fuelMixPercent);
 
   return (
@@ -60,8 +61,30 @@ export function CarbonClock() {
       </div>
 
       <FuelMixBar slices={slices} />
+
+      {todayForecast && (
+        <div className="mt-2.5 border-t border-stone-200 pt-2 text-[11px] text-stone-600">
+          예상 최대부하{" "}
+          <span
+            className={`font-medium tabular-nums ${forecastLevelColor(todayForecast.level)}`}
+          >
+            {todayForecast.peakLoadGW.toFixed(1)}GW
+          </span>
+        </div>
+      )}
     </section>
   );
+}
+
+function forecastLevelColor(level: ForecastLevel): string {
+  switch (level) {
+    case "LOW":
+      return "text-emerald-700";
+    case "MEDIUM":
+      return "text-amber-700";
+    case "HIGH":
+      return "text-rose-700";
+  }
 }
 
 function CarbonClockSkeleton({ message }: { message: string }) {
