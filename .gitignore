@@ -19,10 +19,12 @@
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
+Thumbs.db
 
 # debug
 npm-debug.log*
@@ -42,3 +44,12 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# logs
+*.log
+loop.log
