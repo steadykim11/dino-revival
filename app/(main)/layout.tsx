@@ -1,5 +1,7 @@
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { SideNav } from "@/components/layout/side-nav";
+import { createServerSupabase } from "@/lib/auth/supabase-server";
+import { redirect } from "next/navigation";
 
 /**
  * 로그인 후 페이지에 공통으로 적용되는 레이아웃.
@@ -14,15 +16,23 @@ import { SideNav } from "@/components/layout/side-nav";
  *     mx-auto는 viewport 기준이라 그대로 두면 사이드바 영역까지 침범 가능.
  *     바깥 컨테이너에 lg:mr-60(240px)을 주면 콘텐츠가 (viewport - 240) 영역의 중앙에 위치.
  *
- * D8에서 인증 가드를 이 layout에 추가 예정.
- * 현재는 비인증 상태로도 접근 가능 (D5/D6 검증용).
+ * 인증 가드(D8): 미인증 시 /signin으로 redirect
  */
 
-export default function MainLayout({
+export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/signin");
+  }
+
   return (
     <div className="min-h-dvh bg-stone-100">
       <div className="lg:mr-60">

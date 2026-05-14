@@ -227,3 +227,109 @@ D1~D7을 일정 그대로 마무리. 큰 reschedule 없음.
 - [ ] `pnpm build` 무에러
 - [ ] 시연 영상 녹화 환경 준비 — 모바일 시뮬레이션 또는 실제 폰
 - [ ] D8 들어가기 전 Supabase Auth 설정 화면 한 번 둘러보기
+
+## 10. 인증 — @supabase/ssr + fetch + API Route
+
+**결정**: Supabase Auth를 `@supabase/ssr` 패키지로 통합. 가입·로그인은 클라이언트가 `fetch('/api/auth/...')`로 호출하고, Route Handler 안에서 supabase 호출. Server Action 사용 안 함.
+
+**이유**:
+
+- 27개 API 명세서에 이미 `/api/auth/{signup,signin,signout,reset-password}` 4개가 박혀 있어 일관성.
+- 외부에서 같은 API를 curl·Postman으로 호출 가능 → 시연 환경에서 디버깅 용이.
+- Phase 2에서 NestJS 백엔드로 분리할 가능성을 열어두려면 Route Handler 형태가 이식 쉬움.
+- `@supabase/ssr`은 토큰을 HTTP-only 쿠키로 관리해 XSS 노출 차단 + SSR과 호환.
+
+**대안**:
+
+- Server Action — 폼 보일러플레이트 적지만 외부 노출 불가, NestJS 이전 시 재작성 필요.
+- 클라이언트에서 supabase-js 직접 호출 — User 테이블 row 생성 등 부가 작업 자리가 애매. 트리거로 대체 가능하지만 디버깅 까다로움.
+
+**후속**: D9에서 `/api/me/profile` 등 인증된 엔드포인트가 추가되면서 `requireUser` 헬퍼 본격 활용.
+
+---
+
+## 11. Supabase 클라이언트 — 서버·브라우저 함수명 분리
+
+**결정**: `lib/auth/supabase-server.ts`의 export를 `createServerSupabase`, `lib/auth/supabase-client.ts`의 export를 `createBrowserSupabase`로 명명. 두 파일이 같은 이름(`createClient`)을 export하지 않는다.
+
+**이유**: 초기 구현은 양쪽 다 `createClient`로 통일했는데, IDE 자동완성이 잘못된 쪽(브라우저용)을 import해 서버 코드에서 런타임 에러 발생. 이름을 다르게 두면 자동완성 자체가 충돌하지 않아 실수 차단.
+
+**대안**: `import { createClient as createServerSupabase }` 같은 alias — 매 파일마다 반복, 깜빡하면 같은 사고 재현.
+
+**후속**: 일반 명명 규칙으로 굳힘. 새 환경별 헬퍼가 생겨도 환경을 이름에 명시.
+
+---
+
+## 12. 인증 가드 — middleware는 갱신, layout은 redirect
+
+**결정**: `middleware.ts`는 매 요청마다 `supabase.auth.getUser()`를 호출해 토큰을 자동 갱신만 한다. 미인증 시 redirect는 각 layout(`(main)/layout.tsx`, `(auth)/layout.tsx`, `onboarding/layout.tsx`)이 담당. 서버 검증은 항상 `getUser()` (절대 `getSession()` 아님).
+
+**이유**:
+
+- middleware는 API Route 포함 모든 요청을 통과한다. 거기서 redirect를 박으면 401 JSON을 반환해야 할 API 호출이 HTML redirect로 변질됨.
+- redirect 정책이 그룹별로 다르다: `(auth)`는 인증되어 있으면 `/`로, `(main)`·`onboarding`은 미인증이면 `/signin`으로. 각자 layout이 적절한 자리.
+- `getSession()`은 쿠키를 그대로 신뢰해 변조 가능. `getUser()`는 Supabase에 검증 요청 → 안전.
+
+**대안**: middleware에서 path를 보고 분기하는 식으로 redirect — path 매칭 룰이 복잡해지고 그룹별 정책 변화 시 한 곳이 비대해짐.
+
+**후속**: D9에서 User row 유무에 따른 추가 분기("인증됐지만 프로필 미등록 → /onboarding")를 `(main)/layout.tsx`에 추가 예정.
+
+---
+
+## 13. 온보딩 — 라우트 그룹 안 쓰고 일반 디렉토리
+
+**결정**: 가입 직후 단계를 `app/onboarding/` (일반 디렉토리)에 둔다. 라우트 그룹 `app/(onboarding)/`이 아님.
+
+**이유**:
+
+- `(onboarding)/profile/page.tsx`로 두면 URL이 `/profile`인데, 이게 SC-12 프로필·설정(`(main)/profile/page.tsx`)과 정면 충돌. Next.js 빌드 에러.
+- 일반 디렉토리 `onboarding/`은 URL이 `/onboarding`이 되어 SC-12와 분리.
+- D10에 SC-04 알 선택을 추가할 때 `onboarding/egg/page.tsx` → URL `/onboarding/egg`로 자연스럽게 확장.
+- 그룹의 장점(URL에서 안 보임)이 오히려 단점으로 작용한 케이스. 예상 레포 구조의 `(onboarding)` 표기는 정정.
+
+**대안**: SC-12를 `/settings`로 옮김 — 요약본·와이어프레임의 "프로필/설정" 명명이 바뀜.
+
+**후속**: D9에서 `/onboarding`을 SC-03 프로필 등록 화면으로 본격 구현.
+
+---
+
+## Week 2 진입 회고 (D8)
+
+### 진척 — 일정대로
+
+D8 일정인 "Supabase Auth, 가입·로그인" 끝. 산출물:
+
+- `lib/auth/` 3개 (supabase-server·supabase-client·require-user)
+- `middleware.ts` (토큰 자동 갱신)
+- `/api/auth/{signup,signin,signout,reset-password}` 4개
+- `(auth)/{signup,signin,reset-password}` 페이지 3개 + `(auth)/layout.tsx`
+- `onboarding/{layout,page}` (SC-03 stub)
+- `(main)/layout.tsx`에 인증 가드 추가
+
+시연 흐름 전 단계 동작 확인: `/` → `/signin` redirect → 가입 → `/onboarding` → 로그아웃 → `/signin`.
+
+### 도중에 변경된 결정
+
+- **예상 레포 구조의 `(onboarding)` 그룹**: SC-12 `/profile`과 URL 충돌. 일반 디렉토리 `onboarding/`으로 정정 (ADR 13).
+- **Supabase 클라이언트 함수명**: `createClient` 단일에서 환경별 명명으로 변경 (ADR 11).
+- **OAuth 영역**: Could 우선순위지만 와이어프레임 SC-02에 자리 있음 → "Phase 2" 라벨로 disabled 버튼 자리 표시.
+
+### Week 1 회고에서 짚었던 risk 처리
+
+- ✅ (main) 라우트 가드: ADR 12로 정리.
+- ✅ 세션 정책: HTTP-only 쿠키, 만료는 `@supabase/ssr` 기본값(access 1h, refresh 60d) + middleware 자동 갱신. 추가 정책 불필요.
+- ◯ 관리자 권한: D19에 처리 예정 — 변경 없음.
+- ◯ 메인 화면 폴링 비용: `/api/world/state`만 Public이라 영향 없음 — 변경 없음.
+
+### D9 진입 전 남은 갭
+
+- **인증된 사용자가 User row 없이 `/` 직접 접근 가능**: 의도된 갭. D9에서 `(main)/layout.tsx`에 "User row 없으면 `/onboarding` redirect" 추가하면 막힘.
+- **`/api/me` 엔드포인트 없음**: D9 첫 작업. 인증된 사용자의 프로필 조회·갱신용.
+- **로그아웃 버튼 위치**: 임시로 `onboarding/page.tsx`에 박혀 있음. 정식 위치는 SC-12 프로필 페이지 — D9 이후.
+- **랜딩 SC-01 URL**: A안(생략)으로 D8 진행. D9 또는 D21에 결정.
+
+### D9 들어가기 전 체크
+
+- [ ] `pnpm build` 무에러
+- [ ] Supabase Auth Users 페이지에서 D8 테스트 계정 정리 (또는 D9 테스트용으로 일부 유지)
+- [ ] `.env.local`과 `.env.example` diff 재확인 — D8에 추가된 환경변수 없음 (Supabase 키는 D1부터)
