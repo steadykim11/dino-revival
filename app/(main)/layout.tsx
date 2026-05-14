@@ -1,6 +1,7 @@
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { SideNav } from "@/components/layout/side-nav";
 import { createServerSupabase } from "@/lib/auth/supabase-server";
+import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 
 /**
@@ -16,7 +17,10 @@ import { redirect } from "next/navigation";
  *     mx-auto는 viewport 기준이라 그대로 두면 사이드바 영역까지 침범 가능.
  *     바깥 컨테이너에 lg:mr-60(240px)을 주면 콘텐츠가 (viewport - 240) 영역의 중앙에 위치.
  *
- * 인증 가드(D8): 미인증 시 /signin으로 redirect
+ * 인증 가드(D8):
+ * - 미인증 시 /signin으로 redirect
+ * - 인증됐지만 User row 없으면 /onboarding
+ * - 둘 다 있으면 정상 진입
  */
 
 export default async function MainLayout({
@@ -31,6 +35,15 @@ export default async function MainLayout({
 
   if (!user) {
     redirect("/signin");
+  }
+
+  const profile = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true },
+  });
+
+  if (!profile) {
+    redirect("/onboarding");
   }
 
   return (
