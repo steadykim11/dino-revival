@@ -2,7 +2,7 @@
 // 미인증 시 401 error throw
 
 import { NextResponse } from "next/server";
-import { createClient } from "./supabase-server";
+import { createServerSupabase } from "./supabase-server";
 
 export class UnauthorizedError extends Error {
   constructor() {
@@ -12,7 +12,7 @@ export class UnauthorizedError extends Error {
 }
 
 export async function requireUser() {
-  const supabase = await createClient();
+  const supabase = await createServerSupabase();
   const {
     data: { user },
     error,

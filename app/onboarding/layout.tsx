@@ -2,7 +2,11 @@
 //
 // 가드:
 // - 미인증 시 /signin으로 redirect
-// - 이미 User row 있으면 / (메인) SC-03 재진입 방지
+// - User row + Dino row 둘 다 있으면 / (메인) - 온보딩 완료자 재진입 차단
+// - 그 외 (User 없음 / User만 있고 Dino 없음) -> 온보딩 영역 유지
+// onboarding 내부 페이지 간 이동은 페이지 자체에서 결정:
+// - /onboarding (SC-03) : User row 없으면 폼 표시, 있으면 /onboarding/egg로 이동
+// - /onboarding/egg (SC-04, D10) : Dino row 없으면 폼 표시
 
 import { createServerSupabase } from "@/lib/auth/supabase-server";
 import { prisma } from "@/lib/prisma";
@@ -24,10 +28,11 @@ export default async function OnboardingLayout({
 
   const profile = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { id: true },
+    select: { id: true, dino: { select: { id: true } }, },
   });
 
-  if (profile) {
+  // 온보딩 완료자(User + Dino 모두 있음)는 메인으로
+  if (profile && profile.dino) {
     redirect("/");
   }
 
