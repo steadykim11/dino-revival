@@ -220,14 +220,6 @@ D1~D7을 일정 그대로 마무리. 큰 reschedule 없음.
 - **관리자 권한**: `ADMIN_USER_IDS` 환경변수 화이트리스트 정책만 결정. 실제 미들웨어는 D19.
 - **메인 화면 폴링 비용**: 5초 간격 + 인증 도입 시 사용자별 세션 검증이 매 요청마다 발생. /api/world/state는 Public이라 면제(ADR 5)지만 다른 핫 엔드포인트(/api/missions/today 등)는 캐싱 정책 별도 검토 필요.
 
-### Week 2 진입 전 체크
-
-- [ ] `.env.example`을 Vercel 환경변수와 diff
-- [ ] `.env.local`이 git 히스토리에 들어간 적 없는지 `git log -- .env.local`로 확인
-- [ ] `pnpm build` 무에러
-- [ ] 시연 영상 녹화 환경 준비 — 모바일 시뮬레이션 또는 실제 폰
-- [ ] D8 들어가기 전 Supabase Auth 설정 화면 한 번 둘러보기
-
 ## 10. 인증 — @supabase/ssr + fetch + API Route
 
 **결정**: Supabase Auth를 `@supabase/ssr` 패키지로 통합. 가입·로그인은 클라이언트가 `fetch('/api/auth/...')`로 호출하고, Route Handler 안에서 supabase 호출. Server Action 사용 안 함.
@@ -328,8 +320,147 @@ D8 일정인 "Supabase Auth, 가입·로그인" 끝. 산출물:
 - **로그아웃 버튼 위치**: 임시로 `onboarding/page.tsx`에 박혀 있음. 정식 위치는 SC-12 프로필 페이지 — D9 이후.
 - **랜딩 SC-01 URL**: A안(생략)으로 D8 진행. D9 또는 D21에 결정.
 
-### D9 들어가기 전 체크
+## 14. 프로필 — PUT으로 생성·갱신 통합
+
+**결정**: `PUT /api/me/profile` 한 엔드포인트로 첫 생성과 부분 갱신을 모두 처리. POST/PATCH 분리 안 함. 명세서의 PATCH는 PUT으로 정정.
+
+**이유**:
+
+- 첫 생성 = "프로필을 이 상태로 두기"라는 멱등 의미. PUT의 의미와 자연스럽게 맞음.
+- POST(생성) + PATCH(수정) 분리는 클라이언트가 "이게 첫 호출인지"를 알아야 결정. 클라이언트가 `/api/me`를 먼저 호출해 확인하는 한 라운드트립 추가.
+- PATCH는 RFC상 "부분 갱신"이라 첫 생성 의미와 어긋남.
+
+**대안**:
+
+- POST(생성) + PATCH(수정) 분리 — 위 단점.
+- PATCH로 upsert — 의미 어긋남.
+
+**후속**: 다른 1:1 리소스(예: `/api/me/dino` D10)도 같은 패턴 채택 검토.
+
+---
+
+## 15. regions.ts — 동네 데이터의 단일 진실 원천(SSoT)
+
+**결정**: `lib/static-data/regions.ts`가 시·군·구 데이터의 SSoT. 길드 시드·온보딩 select·동네 변경 select·서버 화이트리스트 검증 모두 이 파일을 import.
+
+**이유**:
+
+- 길드 시드와 동네 선택지가 분리돼 있으면 정합성 깨짐 — 사용자가 선택했는데 매칭 길드가 없는 케이스.
+- 동네 추가·삭제 시 한 곳만 수정하면 됨.
+- `REGIONS_BY_CODE` Map과 `REGIONS_BY_PROVINCE` Map을 같은 파일에서 파생 — 조회·렌더링 비용 절감.
+
+**대안**:
+
+- 시드와 클라이언트 상수를 별도 — 동기화 부담.
+- DB의 `guilds` 테이블을 SoT — 빌드 타임 검증 불가, optgroup 렌더링 시 매번 쿼리.
+
+**후속**: 동네 확장 시(현재 15개) 이 파일만 수정하고 `pnpm prisma db seed` 재실행하면 길드도 자동 확장.
+
+---
+
+## 16. 온보딩 layout 가드 — path 의존 없는 단순 규칙
+
+**결정**: `onboarding/layout.tsx`는 **User + Dino 둘 다 있을 때만** `/`로 redirect. 그 외(User 없음 / User만 있고 Dino 없음)는 onboarding 영역에 머무름. 페이지 간 이동은 각 페이지가 직접 처리.
+
+**이유**:
+
+- layout이 현재 경로를 알아내려면 `next/headers`로 'x-pathname' 같은 커스텀 헤더가 필요. 미들웨어 작업이 늘어남.
+- 단순 규칙으로 무한 루프 방지 — "User만 있는 상태"에서 `/onboarding`·`/onboarding/egg` 어디서든 layout이 redirect 안 함.
+- 페이지가 자기 진입 조건을 책임 — `/onboarding`(SC-03)은 useEffect로 User 유무 보고 `/onboarding/egg` 자동 이동.
+
+**대안**:
+
+- layout에서 path 보고 분기 — 미들웨어 커스터마이징 부담.
+- 미들웨어에서 모든 redirect 처리 — API Route까지 영향 받아 위험.
+
+**후속**: D10에서 `(main)/layout.tsx`에 "Dino 없으면 `/onboarding/egg` redirect" 추가하면 메인 영역의 분기까지 완성.
+
+---
+
+## 17. needsOnboarding 응답 신호 — 서버가 클라이언트 라우팅을 안내
+
+**결정**: 인증 API(`signup`, `signin`) 응답에 `needsOnboarding: boolean` 필드. 클라이언트가 이 값으로 `/onboarding` vs `/` 분기. 추가로 `/api/me` 응답의 `profile`·`dino` null 여부로 세분화.
+
+**이유**:
+
+- 서버가 도메인 상태(User row 유무 등)를 가장 정확하게 안다. 클라이언트가 다시 fetch해서 판단할 필요 없음.
+- 인증 직후 라운드트립 절감 — signin 응답 한 번으로 다음 화면 결정.
+
+**대안**:
+
+- 클라이언트가 signin 후 `/api/me` 또 호출 — 라운드트립 추가.
+- 인증 응답에 전체 User 객체 — 응답 비대, 책임 흐려짐.
+
+**후속**: D10에서 알 선택 후 분기에 `dino` 필드 활용. 응답 스키마는 Phase 2에 OpenAPI로 정형화 검토.
+
+---
+
+## 18. 컴포넌트 추출 트리거 — 두 곳 사용 + 분리 가치
+
+**결정**: 추상화는 다음 조건 동시 만족 시에만:
+
+1. 두 곳 이상에서 재사용되는 게 확실
+2. 추출 단위가 자체로 의미 있는 책임 (input + 검증, select + 옵션 데이터 등)
+3. 100줄 안팎 — 너무 작으면 점프 비용, 너무 크면 응집도 의심
+
+D9에서 `components/profile/` 하위 3개(useNicknameCheck, NicknameInput, RegionSelect)와 `lib/profile/cooldown.ts` 추출. SC-03(온보딩)과 SC-12(프로필 설정)에서 공유.
+
+**이유**:
+
+- 시연 토이라 과도한 추상화는 점프 비용만 늘림 (Layered Architecture 단순화 방침).
+- 둘 다 한 번만 쓰일 거면 인라인 유지가 가독성 좋음.
+- 추출 시점 = "두 번째 호출자가 등장" 또는 "쿨다운 정책처럼 서버·클라 양쪽 사용".
+
+**대안**:
+
+- 사전 추상화 (한 번 쓰일 거라도 컴포넌트로 분리) — 점프 비용 + 인터페이스 설계 부담.
+- 끝까지 인라인 — SC-12 작성 시 SC-03 복붙 → 양쪽 동기화 부담.
+
+**후속**: 미션 카드(D11~D12)와 배틀 컷씬(D13)도 두 페이지에서 쓰일 가능성 — 같은 트리거로 추출 판단.
+
+---
+
+## Week 2 중반 회고 (D9)
+
+### 진척 — 일정대로
+
+D9 일정인 "프로필 페이지, 온보딩 플로우" 끝. 산출물:
+
+- `lib/static-data/regions.ts` — 시·군·구 SoT (15개, 길드 시드와 1:1)
+- `lib/profile/cooldown.ts` — 쿨다운 계산 유틸
+- `/api/me`, `/api/me/profile` (PUT), `/api/me/check-nickname` (GET) 3개
+- `components/profile/` 3개 (useNicknameCheck, NicknameInput, RegionSelect)
+- SC-03 정식 폼 (onboarding/page.tsx)
+- SC-04 stub (onboarding/egg/page.tsx)
+- SC-12 프로필·설정 (인라인 편집 + 쿨다운 + 로그아웃)
+- `(main)/layout.tsx`에 User row 가드 추가
+- `onboarding/layout.tsx`에 Dino까지 보는 가드 추가
+- 길드 시드를 regions SoT에서 import하도록 리팩터
+
+시연 흐름 검증: 가입 → SC-03 → SC-04 stub → 메인 → SC-12 인라인 편집 → 로그아웃까지 통과.
+
+### 도중에 변경된 결정
+
+- **API 명세서의 PATCH → PUT**: ADR 14 — 멱등성 의미 살리려고.
+- **`(onboarding)` 라우트 그룹 → `onboarding/` 일반 디렉토리**: D8에 결정했지만 D9에서 이 구조의 이점이 실제로 발휘됨 (`/onboarding/egg`가 자연스럽게 자식 라우트).
+- **시·군·구 50~60개 → 15개**: 길드 시드와 맞추는 게 정합성 측면에서 더 중요했음. 시연 토이에 50개의 가치 없음.
+- **컴포넌트 추출 시점**: SC-12 작성 직전에 SC-03도 함께 리팩터. 이중 추출 비용 피함.
+
+### 사고 친 것
+
+- **`.env`와 `.env.local`의 `DATABASE_URL` 충돌**: Prisma Postgres 더미 URL이 `.env`에 박혀있어 seed가 그걸 잡고 P5010. 요약본에 적어둔 정책("DATABASE_URL/DIRECT_URL은 `.env`에도 동일하게")을 지키지 못한 상태였음. 해결 + DB 비밀번호 회전.
+
+### Week 1·Week 2 초의 남은 갭 처리
+
+- ✅ User row 없이 `/` 접근 가능 (D8 갭): `(main)/layout.tsx` 가드 추가로 닫힘.
+- ✅ 로그아웃 버튼이 onboarding stub에 있음: SC-12 계정 섹션으로 이동.
+- ◯ Dino row 없이 `/`·`/profile` 접근 가능: D10에서 닫힐 예정.
+- ◯ 비밀번호 변경 입력 폼 없음: 시연 시나리오 밖. 재설정 메일 발송으로 갈음.
+- ◯ 탈퇴·약관·문의: Phase 2.
+
+### D10 진입 전 체크
 
 - [ ] `pnpm build` 무에러
-- [ ] Supabase Auth Users 페이지에서 D8 테스트 계정 정리 (또는 D9 테스트용으로 일부 유지)
-- [ ] `.env.local`과 `.env.example` diff 재확인 — D8에 추가된 환경변수 없음 (Supabase 키는 D1부터)
+- [ ] `.env`와 `.env.local`의 `DATABASE_URL`·`DIRECT_URL`이 정확히 같은지
+- [ ] 시드 재실행 → `✓ 15 guilds`
+- [ ] `/api/me/profile`의 `daysBetween` 헬퍼를 `lib/profile/cooldown.ts`로 통일 (선택)

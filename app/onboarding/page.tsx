@@ -5,16 +5,9 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { REGIONS_BY_PROVINCE } from "@/lib/static-data/regions";
-
-const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,12}$/;
-
-type NicknameStatus =
-  | { kind: "idle" }
-  | { kind: "checking" }
-  | { kind: "invalid_format" }
-  | { kind: "taken" }
-  | { kind: "available" };
+import { NicknameInput } from "@/components/profile/nickname-input";
+import { RegionSelect } from "@/components/profile/region-select";
+import type { NicknameStatus } from "@/components/profile/use-nickname-check";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -46,42 +39,6 @@ export default function OnboardingPage() {
   });
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  // 닉네임 debounce 검증
-  useEffect(() => {
-    const trimmed = nickname.trim();
-    if (trimmed === "") {
-      setNicknameStatus({ kind: "idle" });
-      return;
-    }
-    if (!NICKNAME_REGEX.test(trimmed)) {
-      setNicknameStatus({ kind: "invalid_format" });
-      return;
-    }
-
-    setNicknameStatus({ kind: "checking" });
-
-    const handle = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `/api/me/check-nickname?nickname=${encodeURIComponent(trimmed)}`,
-        );
-        const json = await res.json();
-        if (json.available) {
-          setNicknameStatus({ kind: "available" });
-        } else if (json.reason === "INVALID_FORMAT") {
-          setNicknameStatus({ kind: "invalid_format" });
-        } else {
-          setNicknameStatus({ kind: "taken" });
-        }
-      } catch {
-        // 네트워크 오류는 조용히 idle로 — 제출 시점에 검증
-        setNicknameStatus({ kind: "idle" });
-      }
-    }, 400);
-
-    return () => clearTimeout(handle);
-  }, [nickname]);
 
   const canSubmit =
     nicknameStatus.kind === "available" && regionCode !== "" && !submitting;
@@ -134,42 +91,17 @@ export default function OnboardingPage() {
         {/* 닉네임 */}
         <div>
           <label className="mb-1 block text-xs text-stone-600">닉네임</label>
-          <input
-            type="text"
+          <NicknameInput
             value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            placeholder="2~12자, 한글·영문·숫자"
-            maxLength={12}
-            required
-            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
+            onChange={setNickname}
+            onStatusChange={setNicknameStatus}
+            helperText="30일 후 변경 가능"
           />
-          <NicknameStatusMessage status={nicknameStatus} nickname={nickname} />
         </div>
 
-        {/* 동네 */}
         <div>
           <label className="mb-1 block text-xs text-stone-600">동네</label>
-          <select
-            value={regionCode}
-            onChange={(e) => setRegionCode(e.target.value)}
-            required
-            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
-          >
-            <option value="" disabled>
-              시·군·구 선택
-            </option>
-            {Array.from(REGIONS_BY_PROVINCE.entries()).map(
-              ([province, regions]) => (
-                <optgroup key={province} label={province}>
-                  {regions.map((r) => (
-                    <option key={r.code} value={r.code}>
-                      {r.displayName}
-                    </option>
-                  ))}
-                </optgroup>
-              ),
-            )}
-          </select>
+          <RegionSelect value={regionCode} onChange={setRegionCode} />
           <p className="mt-1 text-xs text-stone-400">90일 후 변경 가능</p>
         </div>
 
@@ -189,40 +121,4 @@ export default function OnboardingPage() {
       </form>
     </div>
   );
-}
-
-function NicknameStatusMessage({
-  status,
-  nickname,
-}: {
-  status: NicknameStatus;
-  nickname: string;
-}) {
-  if (nickname.trim() === "") {
-    return <p className="mt-1 text-xs text-stone-400">30일 후 변경 가능</p>;
-  }
-  switch (status.kind) {
-    case "checking":
-      return <p className="mt-1 text-xs text-stone-500">확인 중...</p>;
-    case "invalid_format":
-      return (
-        <p className="mt-1 text-xs text-rose-600">
-          한글·영문·숫자 2~12자만 가능합니다.
-        </p>
-      );
-    case "taken":
-      return (
-        <p className="mt-1 text-xs text-rose-600">
-          이미 사용 중인 닉네임입니다.
-        </p>
-      );
-    case "available":
-      return (
-        <p className="mt-1 text-xs text-emerald-600">
-          사용 가능한 닉네임입니다.
-        </p>
-      );
-    default:
-      return <p className="mt-1 text-xs text-stone-400">30일 후 변경 가능</p>;
-  }
 }
