@@ -20,6 +20,7 @@ import { redirect } from "next/navigation";
  * 인증 가드(D8):
  * - 미인증 시 /signin으로 redirect
  * - 인증됐지만 User row 없으면 /onboarding
+ * - User row 있고 Dino row 없음 → /onboarding/egg
  * - 둘 다 있으면 정상 진입
  */
 
@@ -39,11 +40,15 @@ export default async function MainLayout({
 
   const profile = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { id: true },
+    select: { id: true, dino: { select: { id: true } } },
   });
 
   if (!profile) {
     redirect("/onboarding");
+  }
+
+  if (!profile.dino) {
+    redirect("/onboarding/egg");
   }
 
   return (

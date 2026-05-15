@@ -1,6 +1,6 @@
 # 아키텍처 결정 기록
 
-D1~D6 동안 내린 주요 결정 사항을 가볍게 ADR(Architecture Decision Record) 형식으로 정리.
+주요 결정 사항을 ADR(Architecture Decision Record) 형식으로 정리.
 시간이 지나서 "왜 이렇게 했지?"를 다시 확인할 때 보는 문서.
 
 각 항목은 **결정 / 이유 / 대안 / 후속**으로 구성.
@@ -158,68 +158,6 @@ D1~D6 동안 내린 주요 결정 사항을 가볍게 ADR(Architecture Decision 
 
 ---
 
-## 시연 시나리오 (5분)
-
-| 시간      | 내용                        | 화면          |
-| --------- | --------------------------- | ------------- |
-| 0:00~0:30 | 컨셉 소개                   | SC-01 → SC-02 |
-| 0:30~1:00 | 가입·온보딩                 | SC-03 → SC-04 |
-| 1:00~2:00 | 메인 + 탄소시계 + 공룡 소개 | SC-05         |
-| 2:00~3:00 | 미션 클리어 → 전투          | SC-06 → SC-07 |
-| 3:00~3:30 | 진화 연출                   | SC-08         |
-| 3:30~4:30 | 던전 발령(수동) → 진입      | SC-13 → SC-09 |
-| 4:30~5:00 | 통계·리더보드               | SC-10 → SC-11 |
-
-던전은 실제 예비율 10% 미만 발생 가능성이 거의 없으므로 관리자 패널(`/admin`)의 수동 트리거를 시연 중 사용.
-
----
-
-## Phase 2 후보
-
-MVP 완료 후 시간 여유 시 검토:
-
-- Redis(Upstash) 캐시 — 리더보드 캐시 등
-- WebSocket — 던전 발령 실시간 알림
-- NestJS 백엔드 분리 — 도메인 로직과 Next.js의 결합도 낮춤
-- OAuth 로그인 — 카카오·Google
-- 데스크톱 2열 레이아웃
-- 시간대별 활동 히트맵 (SC-10 차트 2)
-- 주간 피크 전망 자동 갱신
-
----
-
-## Week 1 회고 (D1~D7)
-
-### 진척 — 일정대로
-
-D1~D7을 일정 그대로 마무리. 큰 reschedule 없음.
-
-- D1: 셋업·배포·헬스체크
-- D2: Prisma 스키마 9개 + 시드 (미션 풀 15·길드 15)
-- D3: KPX D1·D2 클라이언트 (Zod 검증, XML 파싱)
-- D4: WorldSnapshot 적재 파이프 (PC 루프 + Vercel ingest 엔드포인트)
-- D5: /api/world/state + 탄소 시계 컴포넌트 + 메인 페이지 골격
-- D6: 전역 레이아웃(헤더·탭바·사이드바) + 주간 피크 전망 데이터 도입
-- D7: 데이터 안정성 스폿 체크 + 문서화
-
-### 도중에 변경된 결정
-
-- **D6의 "D3 API + 피크 시간대 표시"** 일정 항목이 "주간 피크 전망 정적 자료 + 메인에 부가 정보 표시"로 재정의됨. 사유는 ADR 8 참조. 일정 영향 없음.
-- **전역 레이아웃**이 일정표에 명시되어 있지 않았는데 D6에 흡수. 자연스러운 통합이라 부담 없었음.
-
-### 발견된 트레이드오프와 처방
-
-- **KPX D2 간헐 500**: D5 패치 4가지(UA 헤더, 대기 1초, retry true, libuv 어설션 회피)로 처방. D17 무렵 본격 누적 시 추가 관찰.
-- **fuelMixPercent 분모 정합성**: 표시용과 계산용이 다를 뻔 했음. ADR 3에서 통일.
-- **데스크톱 레이아웃 폭**: 콘텐츠 폭 늘리기 vs 고정 vs 2열 — 시간 비용 고려해 고정으로(ADR 7), 본격 디자인은 D21로.
-
-### Week 2 전 남은 risk
-
-- **인증 도입 시 (main) 라우트 가드**: 현재 layout에 가드 없음. D8에 작업 예정. SC-05가 비인증으로도 접근되는 상태라 안 통제하면 D9 이후 페이지 추가 시 혼란.
-- **세션 정책**: HTTP-only 쿠키 사용 결정만 됐고 만료·갱신 정책 미정. D8에 결정.
-- **관리자 권한**: `ADMIN_USER_IDS` 환경변수 화이트리스트 정책만 결정. 실제 미들웨어는 D19.
-- **메인 화면 폴링 비용**: 5초 간격 + 인증 도입 시 사용자별 세션 검증이 매 요청마다 발생. /api/world/state는 Public이라 면제(ADR 5)지만 다른 핫 엔드포인트(/api/missions/today 등)는 캐싱 정책 별도 검토 필요.
-
 ## 10. 인증 — @supabase/ssr + fetch + API Route
 
 **결정**: Supabase Auth를 `@supabase/ssr` 패키지로 통합. 가입·로그인은 클라이언트가 `fetch('/api/auth/...')`로 호출하고, Route Handler 안에서 supabase 호출. Server Action 사용 안 함.
@@ -277,48 +215,13 @@ D1~D7을 일정 그대로 마무리. 큰 reschedule 없음.
 - `(onboarding)/profile/page.tsx`로 두면 URL이 `/profile`인데, 이게 SC-12 프로필·설정(`(main)/profile/page.tsx`)과 정면 충돌. Next.js 빌드 에러.
 - 일반 디렉토리 `onboarding/`은 URL이 `/onboarding`이 되어 SC-12와 분리.
 - D10에 SC-04 알 선택을 추가할 때 `onboarding/egg/page.tsx` → URL `/onboarding/egg`로 자연스럽게 확장.
-- 그룹의 장점(URL에서 안 보임)이 오히려 단점으로 작용한 케이스. 예상 레포 구조의 `(onboarding)` 표기는 정정.
+- 그룹의 장점(URL에서 안 보임)이 오히려 단점으로 작용한 케이스.
 
 **대안**: SC-12를 `/settings`로 옮김 — 요약본·와이어프레임의 "프로필/설정" 명명이 바뀜.
 
 **후속**: D9에서 `/onboarding`을 SC-03 프로필 등록 화면으로 본격 구현.
 
 ---
-
-## Week 2 진입 회고 (D8)
-
-### 진척 — 일정대로
-
-D8 일정인 "Supabase Auth, 가입·로그인" 끝. 산출물:
-
-- `lib/auth/` 3개 (supabase-server·supabase-client·require-user)
-- `middleware.ts` (토큰 자동 갱신)
-- `/api/auth/{signup,signin,signout,reset-password}` 4개
-- `(auth)/{signup,signin,reset-password}` 페이지 3개 + `(auth)/layout.tsx`
-- `onboarding/{layout,page}` (SC-03 stub)
-- `(main)/layout.tsx`에 인증 가드 추가
-
-시연 흐름 전 단계 동작 확인: `/` → `/signin` redirect → 가입 → `/onboarding` → 로그아웃 → `/signin`.
-
-### 도중에 변경된 결정
-
-- **예상 레포 구조의 `(onboarding)` 그룹**: SC-12 `/profile`과 URL 충돌. 일반 디렉토리 `onboarding/`으로 정정 (ADR 13).
-- **Supabase 클라이언트 함수명**: `createClient` 단일에서 환경별 명명으로 변경 (ADR 11).
-- **OAuth 영역**: Could 우선순위지만 와이어프레임 SC-02에 자리 있음 → "Phase 2" 라벨로 disabled 버튼 자리 표시.
-
-### Week 1 회고에서 짚었던 risk 처리
-
-- ✅ (main) 라우트 가드: ADR 12로 정리.
-- ✅ 세션 정책: HTTP-only 쿠키, 만료는 `@supabase/ssr` 기본값(access 1h, refresh 60d) + middleware 자동 갱신. 추가 정책 불필요.
-- ◯ 관리자 권한: D19에 처리 예정 — 변경 없음.
-- ◯ 메인 화면 폴링 비용: `/api/world/state`만 Public이라 영향 없음 — 변경 없음.
-
-### D9 진입 전 남은 갭
-
-- **인증된 사용자가 User row 없이 `/` 직접 접근 가능**: 의도된 갭. D9에서 `(main)/layout.tsx`에 "User row 없으면 `/onboarding` redirect" 추가하면 막힘.
-- **`/api/me` 엔드포인트 없음**: D9 첫 작업. 인증된 사용자의 프로필 조회·갱신용.
-- **로그아웃 버튼 위치**: 임시로 `onboarding/page.tsx`에 박혀 있음. 정식 위치는 SC-12 프로필 페이지 — D9 이후.
-- **랜딩 SC-01 URL**: A안(생략)으로 D8 진행. D9 또는 D21에 결정.
 
 ## 14. 프로필 — PUT으로 생성·갱신 통합
 
@@ -352,7 +255,7 @@ D8 일정인 "Supabase Auth, 가입·로그인" 끝. 산출물:
 **대안**:
 
 - 시드와 클라이언트 상수를 별도 — 동기화 부담.
-- DB의 `guilds` 테이블을 SoT — 빌드 타임 검증 불가, optgroup 렌더링 시 매번 쿼리.
+- DB의 `guilds` 테이블을 SSoT — 빌드 타임 검증 불가, optgroup 렌더링 시 매번 쿼리.
 
 **후속**: 동네 확장 시(현재 15개) 이 파일만 수정하고 `pnpm prisma db seed` 재실행하면 길드도 자동 확장.
 
@@ -364,7 +267,6 @@ D8 일정인 "Supabase Auth, 가입·로그인" 끝. 산출물:
 
 **이유**:
 
-- layout이 현재 경로를 알아내려면 `next/headers`로 'x-pathname' 같은 커스텀 헤더가 필요. 미들웨어 작업이 늘어남.
 - 단순 규칙으로 무한 루프 방지 — "User만 있는 상태"에서 `/onboarding`·`/onboarding/egg` 어디서든 layout이 redirect 안 함.
 - 페이지가 자기 진입 조건을 책임 — `/onboarding`(SC-03)은 useEffect로 User 유무 보고 `/onboarding/egg` 자동 이동.
 
@@ -420,47 +322,97 @@ D9에서 `components/profile/` 하위 3개(useNicknameCheck, NicknameInput, Regi
 
 ---
 
-## Week 2 중반 회고 (D9)
+## 19. species 메타데이터 — lib/dino/species.ts 단일 자리
 
-### 진척 — 일정대로
+**결정**: 종(species) 관련 표시 정보(displayName·description·defaultName·color·isAvailable·lockedReason)를 `lib/dino/species.ts`에 모음. UI·API 검증·시드 모두 이 파일을 import.
 
-D9 일정인 "프로필 페이지, 온보딩 플로우" 끝. 산출물:
+**이유**:
 
-- `lib/static-data/regions.ts` — 시·군·구 SoT (15개, 길드 시드와 1:1)
-- `lib/profile/cooldown.ts` — 쿨다운 계산 유틸
-- `/api/me`, `/api/me/profile` (PUT), `/api/me/check-nickname` (GET) 3개
-- `components/profile/` 3개 (useNicknameCheck, NicknameInput, RegionSelect)
-- SC-03 정식 폼 (onboarding/page.tsx)
-- SC-04 stub (onboarding/egg/page.tsx)
-- SC-12 프로필·설정 (인라인 편집 + 쿨다운 + 로그아웃)
-- `(main)/layout.tsx`에 User row 가드 추가
-- `onboarding/layout.tsx`에 Dino까지 보는 가드 추가
-- 길드 시드를 regions SoT에서 import하도록 리팩터
+- SC-04 알 카드, SC-04b 디폴트 이름, SC-05 메인 색상, PUT API 잠금 검증이 다 같은 정보 참조.
+- Phase 2에서 BRACHIO·TRICERA 활성화할 때 한 곳만 `isAvailable: true`로 수정.
+- DB에 species 메타를 안 두는 이유 — 정적 데이터고, 빌드 타임 검증 가치 있음(`Record<DinoSpecies, SpeciesMeta>` 타입 보장).
 
-시연 흐름 검증: 가입 → SC-03 → SC-04 stub → 메인 → SC-12 인라인 편집 → 로그아웃까지 통과.
+**대안**:
 
-### 도중에 변경된 결정
+- DB의 `species` enum + 별도 메타 테이블 — 정적인데 DB 조회 부담.
+- 각 컴포넌트에 인라인 상수 — 동기화 부담.
 
-- **API 명세서의 PATCH → PUT**: ADR 14 — 멱등성 의미 살리려고.
-- **`(onboarding)` 라우트 그룹 → `onboarding/` 일반 디렉토리**: D8에 결정했지만 D9에서 이 구조의 이점이 실제로 발휘됨 (`/onboarding/egg`가 자연스럽게 자식 라우트).
-- **시·군·구 50~60개 → 15개**: 길드 시드와 맞추는 게 정합성 측면에서 더 중요했음. 시연 토이에 50개의 가치 없음.
-- **컴포넌트 추출 시점**: SC-12 작성 직전에 SC-03도 함께 리팩터. 이중 추출 비용 피함.
+**후속**: D14 진화 연출 카피, D21 디자인 토큰도 이 파일 확장으로 흡수 가능.
 
-### 사고 친 것
+---
 
-- **`.env`와 `.env.local`의 `DATABASE_URL` 충돌**: Prisma Postgres 더미 URL이 `.env`에 박혀있어 seed가 그걸 잡고 P5010. 요약본에 적어둔 정책("DATABASE_URL/DIRECT_URL은 `.env`에도 동일하게")을 지키지 못한 상태였음. 해결 + DB 비밀번호 회전.
+## 20. PUT으로 Dino 첫 생성, 게임 진행 갱신은 내부 함수
 
-### Week 1·Week 2 초의 남은 갭 처리
+**결정**: `PUT /api/me/dino`는 첫 생성(알 받기)만 담당. 이미 있으면 409. 게임 진행에 따른 갱신(클린에너지·친밀도·진화)은 API를 통하지 않고 `lib/dino/`의 내부 함수가 prisma를 직접 호출. 관리자의 강제 조정은 별도 `/api/admin/dino` (D19).
 
-- ✅ User row 없이 `/` 접근 가능 (D8 갭): `(main)/layout.tsx` 가드 추가로 닫힘.
-- ✅ 로그아웃 버튼이 onboarding stub에 있음: SC-12 계정 섹션으로 이동.
-- ◯ Dino row 없이 `/`·`/profile` 접근 가능: D10에서 닫힐 예정.
-- ◯ 비밀번호 변경 입력 폼 없음: 시연 시나리오 밖. 재설정 메일 발송으로 갈음.
-- ◯ 탈퇴·약관·문의: Phase 2.
+**이유**:
 
-### D10 진입 전 체크
+- 사용자가 의도적으로 호출하는 동사(생성)와 시스템이 자동 처리하는 동사(보상·진화)는 책임이 다름. 같은 엔드포인트로 통합하면 권한 분기·트랜잭션 경계가 흐려짐.
+- 미션 완료(D12) 시 클린에너지 갱신 + 진화 체크 + 미션 로그 기록이 한 트랜잭션. 클라이언트가 PATCH 호출하는 식이면 트랜잭션 분리됨.
+- 관리자 강제 조정은 시연용이라 책임·권한 모두 분리.
 
-- [ ] `pnpm build` 무에러
-- [ ] `.env`와 `.env.local`의 `DATABASE_URL`·`DIRECT_URL`이 정확히 같은지
-- [ ] 시드 재실행 → `✓ 15 guilds`
-- [ ] `/api/me/profile`의 `daysBetween` 헬퍼를 `lib/profile/cooldown.ts`로 통일 (선택)
+**대안**:
+
+- 단일 PATCH 엔드포인트로 모든 갱신 — 권한 매트릭스 복잡, 트랜잭션 깨짐.
+- POST(생성) + PATCH(갱신) — D9에서 결정한 PUT 패턴과 어긋남.
+
+**후속**: D12에서 `lib/dino/rewards.ts` 작성 — 미션 완료 트랜잭션 안에서 호출되는 내부 함수.
+
+---
+
+## 21. 부화는 진화의 일부 — PUT 시 EGG로 시작
+
+**결정**: PUT 시 `stage: 'EGG'`로 생성. EGG → HATCHLING 전이는 미션 완료로 클린에너지 100 도달 시 자동 발생 (D14 진화 시스템). 별도 "부화" 액션·트랜지션 화면 없음. SC-08 진화 연출이 부화에도 재사용됨.
+
+**이유**:
+
+- 알을 받자마자 부화하면 사용자에게 EGG stage가 시각적으로 잠깐 보였다 사라짐 — 의미 없음.
+- 부화를 게임 진행에 묶으면 첫 동기부여가 생김. 시연 시 미션 2~3개 클리어로 부화 임팩트까지 보여줄 수 있음.
+- 진화 메커니즘(EGG → HATCHLING → ADULT)이 균일한 한 시스템으로 통합. D14 진화 시스템이 두 단계 모두 처리.
+
+**대안** (한 번 결정했다가 뒤집은 것):
+
+- 부화를 SC-04에서 별도 처리 + PUT 시 HATCHLING으로 직행 — EGG stage가 데드 코드 되고, 첫 진화 임팩트가 약해짐.
+
+**후속**: D14에서 `lib/dino/evolution.ts`의 `shouldEvolve`가 미션 완료 트랜잭션 안에서 호출. SC-08 연출 컴포넌트는 stage 인자로 두 전이 모두 처리.
+
+---
+
+## 22. 공룡 이름 — 사용자 입력 + species별 디폴트
+
+**결정**: Dino 모델에 `name VARCHAR(12)` 컬럼 추가. SC-04b에서 사용자가 직접 입력. species별 디폴트 이름(`SPECIES_META[species].defaultName`)을 input 초기값으로 채워둠. 검증 규칙은 닉네임과 동일(2~12자 한글·영문·숫자).
+
+**이유**:
+
+- 펫 육성 게임 컨셉에서 이름 부여는 강한 애착 형성 장치.
+- 디폴트 채워두기 = 입력 안 해도 자연스러운 흐름(즉시 확정 가능), 입력하면 더 강한 소유감.
+- 닉네임 검증 규칙 재사용 — 정책 통일, 검증 코드 재활용 가능.
+
+**대안**:
+
+- 종에 따라 고정된 이름 (티라노=라프토라) — 컨셉 약화.
+- 빈 input 강제 — UX 마찰.
+
+**후속**: SC-08 진화 연출에서 "{name}가 성체로 진화합니다" 같은 카피 활용.
+
+---
+
+## 23. DinoDisplay — placeholder SVG + CSS keyframes, D21 호환
+
+**결정**: 공룡 표시 컴포넌트는 placeholder SVG (단순 도형)로 시작. 단계별 다른 SVG + 다른 CSS keyframes 애니메이션 (egg-wobble·hatchling-bob·adult-sway). 배경은 species color 기반 그라데이션 + 점 패턴. `prefers-reduced-motion` 지원.
+
+D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`stage`·`size`) 유지 — 호출자(SC-04, SC-04b, SC-05, 향후 SC-09 던전)는 변경 없음.
+
+**이유**:
+
+- "활동하는 펫" 컨셉이 시연 임팩트의 핵심. 정적 이미지로 두면 컨셉 약화.
+- D21 본격 디자인까지 의존 없이 시각 효과 확보.
+- CSS keyframes만 — JS 없이 GPU 가속, 배터리·성능 영향 최소.
+
+**대안**:
+
+- 정적 placeholder 이미지 — 컨셉 약화.
+- JS state로 위치 lerp — 복잡도 증가.
+- 외부 라이브러리(Lottie, Framer Motion) — 번들 사이즈 증가.
+
+**후속**: D21에서 일러스트 교체 시 SVG 부분만 PNG·SVG asset으로 변경. 애니메이션·배경 그대로.

@@ -97,6 +97,9 @@ model Dino {
   userId            String      @unique @db.Uuid
   user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  /// 사용자가 부화 시 지어준 이름 (2~12자)
+  name              String      @db.VarChar(12)
+
   species           DinoSpecies @default(TYRANNO)
   stage             DinoStage   @default(EGG)
 
