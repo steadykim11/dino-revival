@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
   }
 
   return Response.json({
+    missionLogId: result.missionLogId,
     reward: result.reward,
     co2ReducedKg: result.co2ReducedKg,
     evolved: result.evolved,

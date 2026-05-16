@@ -149,10 +149,6 @@ export function MissionsBottomSheet({
           mission={selectedMission}
           carbonIntensity={carbonIntensity}
           onClose={() => setSelectedMission(null)}
-          onCompleted={() => {
-            setSelectedMission(null);
-            onMissionCompleted();
-          }}
         />
       )}
     </>

@@ -25,7 +25,7 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-// Dino animations
+/* Dino animations */
 /* EGG: 가끔 좌우로 살짝 흔들림 (잠자는 듯) */
 @keyframes egg-wobble {
   0%,

@@ -2,31 +2,28 @@
 // - 보상 계산 박스: 클라이언트에서 calculateReward로 미리 계산 (서버는 POST 시 재계산하여 검토)
 // - "완료" → POST /api/missions/complete → 결과 콜백
 // - 자가 신고 안내문 (정직성 환기)
-//
-// D13에서 SC-07 전투 결과 화면이 완성되면 onCompleted 콜백에서 결과 페이지로 라우팅
-// 지금은 모달 닫고 토스트 형태로 결과만 표시
 
 "use client";
 
 import { useState } from "react";
 import { calculateReward } from "@/lib/missions/reward-calculator";
 import type { MissionItem } from "./missions-bottom-sheet";
+import { useRouter } from "next/navigation";
 
 export interface MissionCompleteModalProps {
   mission: MissionItem;
   carbonIntensity: number | null;
   onClose: () => void;
-  onCompleted: () => void;
 }
 
 export function MissionCompleteModal({
   mission,
   carbonIntensity,
   onClose,
-  onCompleted,
 }: MissionCompleteModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   // 보상 미리보기. carbonIntensity가 null이면 baseReward만 표시.
   const preview =
@@ -53,8 +50,10 @@ export function MissionCompleteModal({
         setSubmitting(false);
         return;
       }
-      // D13에서 SC-07 전투 결과로 라우팅 예정. 지금은 콜백으로 새로고침.
-      onCompleted();
+      // 결과 페이지로 라우팅
+      // 메인의 미션 리스트 갱신은 결과 페이지 "계속하기" 클릭 후 router.push("/")에서 자동으로 일어남
+      // Server Component re-fetch + missions-section의 useEffect 재실행
+      router.push(`/battle/${json.missionLogId}`);
     } catch {
       setError("네트워크 오류가 발생했습니다.");
       setSubmitting(false);

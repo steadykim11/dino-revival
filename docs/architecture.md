@@ -442,3 +442,52 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 - D15에서 더미 사용자 50~100명 추가 시 Cron 시간 측정 — `maxDuration=60` 한도 안에 드는지 확인. 초과 시 청크 분할.
 - 알고리즘 검증은 `scripts/test-daily-selector.ts`로 1000회 시뮬레이션. 카테고리 중복·relaxation 발생률 모니터.
 - 미션 풀 deleteMany는 D11 이후 금지(Mission이 poolId FK 참조). 풀 수정 필요 시 개별 update 또는 마이그레이션.
+
+---
+
+## 12. 보상 계산 — 클라이언트 미리보기 + 서버 검증
+
+**결정**: 미션 보상 계산식(`baseReward × carbonWeight × dungeonMultiplier`)을 `lib/missions/reward-calculator.ts` 순수 함수로 분리하고, 클라이언트(SC-06 모달의 보상 박스)와 서버(/api/missions/complete) 양쪽에서 import해 동일 식 사용. 클라이언트는 폴링 캐시의 carbonIntensity로 미리 표시, 서버는 POST 시점에 최신 WorldSnapshot을 다시 조회해 재계산한다.
+
+**이유**:
+
+- SC-06 모달의 "기본 보상 → 가중치 → 최종 보상" 박스를 즉시 표시하려면 클라이언트 계산이 필요.
+- 서버 재계산은 정직성·감사 가능성 차원. MissionLog에 기록되는 값은 항상 서버 기준.
+- /api/world/state는 이미 5초 폴링 중이라 carbonIntensity 추가 호출 없음.
+- 5초 사이 carbonIntensity가 카테고리 경계(<300/<500/≥500)를 넘는 경우만 표시값과 실제 적립값 차이 발생. 흔치 않음.
+
+**대안**:
+
+- preview-reward API 호출 — 추가 라운드트립. 일치 보장이나 호출 1회 늘어남.
+- 모달은 baseReward만 표시 — 와이어프레임 SC-06의 보상 박스 표현 손실.
+
+**후속**:
+
+- D9 환경부 배출계수(`lib/static-data/emission-factors.ts`)의 정식 도입은 미정. 현재 reward-calculator의 `CO2_FACTOR_KG_PER_KWH = 0.4781`은 임시 상수. Phase 2 또는 D24 회고에서 결정.
+- 친밀도 cap(100)은 미션당 +5라 24일 시연 내 도달 가능. 도달 후 cap 동작은 통계 화면에서 확인 가능해야 함.
+
+---
+
+## 13. 전투 결과 화면 — 별도 페이지 + phase 전환
+
+**결정**: 미션 완료 후 결과 페이지(`/battle/[missionLogId]`)로 라우팅. 한 페이지 안에서 `cutscene → result` 두 phase를 useState로 전환. 적은 전장(carbonIntensity 구간)에 따라 3종(미세먼지/운석/화염) 분기. 애니메이션은 motion 12 (구 framer-motion) 사용.
+
+**이유**:
+
+- 결과 페이지를 URL로 가져 시연 시 새로고침·재진입 가능. 모달/오버레이로 띄우면 새로고침 시 사라짐.
+- phase 전환을 한 페이지로 묶어 새로고침 시점에 따른 컷씬 건너뜀/이중 재생 방지.
+- 적 3종 분기로 "월드 상태가 게임에 반영된다"는 컨셉 가시화. carbonIntensity가 다른 시점에 미션 완료 시 다른 적 등장.
+- motion v12는 React 19 정식 지원. 자체 카운트업·진척도 바 구현보다 훨씬 짧음. D14 진화 연출에서 재사용.
+
+**대안**:
+
+- 모달/오버레이 — URL 미보존, 시연 재현성 떨어짐.
+- 컷씬·결과 페이지 분리 — 새로고침 시점 의존, 두 번 보거나 건너뜀 발생.
+- 적 1종 placeholder — 단조로움, 컨셉 약화.
+- 자체 애니메이션 — 카운트업 + 진척도 바 + 충돌 컷씬을 직접 구현하면 시간 손해.
+
+**후속**:
+
+- 진화 발생 시 결과 페이지에서 분기해 D14 진화 연출로 전환. 현재는 stageBefore=stageAfter로 처리.
+- MissionLog에 stageBefore 컬럼 추가 검토 (D14 진행 시).
+- motion의 keyframes/times/ease 배열 길이 규칙(N/N/N-1) 주의. 길이 불일치 시 경고 없이 폴백되므로 D14·이후 작업에서도 의식.

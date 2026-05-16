@@ -31,6 +31,7 @@ export type CompleteFailReason =
 export type CompleteResult =
   | {
       ok: true;
+      missionLogId: string;
       reward: RewardBreakdown;
       co2ReducedKg: number;
       /** 진화 발생 여부 — null이면 진화 안 함 */
@@ -144,7 +145,7 @@ export async function completeMission(
     });
 
     // 8) MissionLog 영구 기록
-    await tx.missionLog.create({
+    const log = await tx.missionLog.create({
       data: {
         userId,
         missionId,
@@ -157,10 +158,12 @@ export async function completeMission(
         intimacyEarned: nextIntimacy - dino.intimacy, // 실제 증가량 (cap 반영)
         completedAt: now,
       },
+      select: { id: true },
     });
 
     return {
       ok: true,
+      missionLogId: log.id,
       reward,
       co2ReducedKg,
       evolved,
