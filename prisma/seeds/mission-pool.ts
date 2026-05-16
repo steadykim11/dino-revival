@@ -157,9 +157,17 @@ export async function seedMissionPool(prisma: PrismaClient) {
   console.log(`  Seeding mission pool (${MISSIONS.length} missions)...`);
 
   // 기존 풀 비우고 새로 (idempotent)
-  // D2 시점엔 발급된 Mission이 없어 안전
-  // D11 이후엔 deleteMany 신중히 해야 함 (Mission이 poolId를 FK로 참조)
-  await prisma.missionPool.deleteMany();
+  // D11 이후: 발급된 Mission이 poolId를 FK로 참조한다.
+  // deleteMany 시 onDelete: Restrict이라 FK 위반 발생.
+  // 두 가지 전략 중 선택:
+  //   1) 풀이 비어있을 때만 createMany (idempotent — 운영용 안전)
+  //   2) Mission 전체를 먼저 비우고 풀 재시드 (개발 리셋용)
+  // 일단 1번으로 진행. 풀 수정이 필요하면 개별 update 또는 별도 마이그레이션.
+  const existing = await prisma.missionPool.count();
+  if (existing > 0) {
+    console.log(`  ↳ pool already seeded (${existing}). skip.`);
+    return;
+  }
 
   await prisma.missionPool.createMany({
     data: MISSIONS.map((m) => ({
