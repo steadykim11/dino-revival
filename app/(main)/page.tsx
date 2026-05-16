@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { createServerSupabase } from "@/lib/auth/supabase-server";
 import { prisma } from "@/lib/prisma";
 import { DinoSection } from "@/components/dino/dino-section";
+import { MissionsSection } from "@/components/missions/missions-section";
 
 export default async function HomePage() {
   // layout 가드 통과 후라 user·dino 존재 보장.
@@ -14,14 +15,14 @@ export default async function HomePage() {
 
   const dino = user
     ? await prisma.dino.findUnique({
-        where: { userId: user.id },
-        select: {
-          name: true,
-          species: true,
-          stage: true,
-          totalCleanEnergy: true,
-        },
-      })
+      where: { userId: user.id },
+      select: {
+        name: true,
+        species: true,
+        stage: true,
+        totalCleanEnergy: true,
+      },
+    })
     : null;
 
   return (
@@ -50,9 +51,7 @@ export default async function HomePage() {
         )}
 
         {/* 4. 미션 바텀시트 자리 — D11·D12 */}
-        <div className="mt-3 rounded-2xl border border-dashed border-stone-300 p-6 text-center text-xs text-stone-400">
-          오늘의 미션 (D11·D12)
-        </div>
+        <MissionsSection />
       </div>
     </>
   );
