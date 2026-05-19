@@ -546,3 +546,28 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 - D17 리더보드·D18 던전 기여도 카운트에서 더미 처리 정책 확정 필요.
 - D20 통계: 본인 통계는 본인 로그만, 길드 평균은 더미 포함.
+
+---
+
+## 16. 길드 점수 — Dino.totalCleanEnergy 합산 + 5분 Lazy 캐시
+
+**결정**: 길드 시즌 점수는 `Dino.totalCleanEnergy` 합산으로 계산. 리더보드 조회 시 read-through 5분 캐시 (`LeaderboardCache` 단일 행, `id='global'`). 캐시 stale 시 재계산 + `Guild.seasonScore` 컬럼도 동기화. 길드원 리스트는 점수 desc 정렬, 본인 강조는 UI 책임.
+
+**이유**:
+
+- Dino.totalCleanEnergy가 클린에너지의 SSoT(D12 reward 트랜잭션·D14 진화 임계값과 동일 소스). MissionLog는 영구 이력이지만 행 수가 10배 이상 많아 집계 비용 큼.
+- 동네 변경 시 누적값 그대로 가져간다는 요약본 정책과 일관 — User.guildId만 보면 됨.
+- Lazy 캐시는 cron 추가 없이 정책 충족. 5분 TTL이라 첫 조회자만 50ms 미만 부담.
+- Guild.seasonScore 컬럼도 같이 갱신 — 캐시 만료 시점에 다른 화면(통계 등)에서 일관된 값 보장.
+
+**대안**:
+
+- MissionLog 합산 — 행 수 많아 집계 비용↑, 동네 변경 시 정책 어긋남.
+- Cron 주기 갱신 — cron 추가 부담.
+- 미션 완료 시 즉시 무효화 — 정확하지만 잦은 쓰기.
+
+**후속**:
+
+- Phase 2에 LeaderboardCache를 Redis로 이전 (schema 정책 명시).
+- D17 SC-11 리더보드 UI가 이 두 엔드포인트 소비.
+- D18 던전 발령 시 길드 기여도 카운트와의 관계 정리 필요.
