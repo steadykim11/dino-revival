@@ -4,8 +4,9 @@
 // - SC-04 알 선택: lockedReason으로 잠금 카드 표시
 // - SC-04b 이름 짓기: defaultName으로 input 초기값
 // - SC-05 메인: color로 dino-display 배경·테마
+// - SC-08 진화 연출: stageLabel·evolutionLines (D14 추가)
 
-import { DinoSpecies } from "@prisma/client";
+import { DinoSpecies, DinoStage } from "@prisma/client";
 
 export interface SpeciesMeta {
   /** 표시명 (예: "티라노 계열") */
@@ -20,6 +21,16 @@ export interface SpeciesMeta {
   isAvailable: boolean;
   /** 잠금된 경우 사유 라벨 */
   lockedReason?: string;
+  /**
+   * 진화 연출 대사 (SC-08, D14 추가)
+   * - hatched: EGG → HATCHLING 시 대사
+   * - evolved: HATCHLING → ADULT 시 대사
+   * 종마다 톤이 다를 수 있어 SpeciesMeta에 둠.
+   */
+  evolutionLines: {
+    hatched: string;
+    evolved: string;
+  };
 }
 
 export type SpeciesColor = "red" | "blue" | "green";
@@ -31,6 +42,10 @@ export const SPECIES_META: Record<DinoSpecies, SpeciesMeta> = {
     defaultName: "라프토라",
     color: "red",
     isAvailable: true,
+    evolutionLines: {
+      hatched: "껍질을 깨고 너의 세상으로 나왔어.",
+      evolved: "오랜 잠에서 깨어났을 때 너를 만나서 다행이야.",
+    },
   },
   BRACHIO: {
     displayName: "용각류",
@@ -39,6 +54,10 @@ export const SPECIES_META: Record<DinoSpecies, SpeciesMeta> = {
     color: "blue",
     isAvailable: false,
     lockedReason: "곧 출시",
+    evolutionLines: {
+      hatched: "",
+      evolved: "",
+    },
   },
   TRICERA: {
     displayName: "각룡류",
@@ -47,6 +66,10 @@ export const SPECIES_META: Record<DinoSpecies, SpeciesMeta> = {
     color: "green",
     isAvailable: false,
     lockedReason: "곧 출시",
+    evolutionLines: {
+      hatched: "",
+      evolved: "",
+    },
   },
 };
 
@@ -64,4 +87,17 @@ export const SPECIES_COLOR_HEX: Record<SpeciesColor, string> = {
   red: "#e07a5f", // 따뜻한 vermillion
   blue: "#81a4cd", // 차분한 cornflower
   green: "#81b29a", // 부드러운 sage
+};
+
+/**
+ * DinoStage → 한국어 표시 라벨 (D14 추가)
+ *
+ * 사용처:
+ * - SC-08 진화 연출 헤드라인: `{dinoName}가 {STAGE_LABEL[to]}로 진화합니다`
+ * - SC-04 알 카드 잠금 라벨, SC-12 프로필 단계 표시 등에도 재사용 가능
+ */
+export const STAGE_LABEL: Record<DinoStage, string> = {
+  EGG: "알",
+  HATCHLING: "유년기",
+  ADULT: "성체",
 };

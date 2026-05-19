@@ -1,12 +1,5 @@
 // 전투 결과 페이지. 컷씬(2.5초) → 결과 표시 두 단계를 한 페이지에서 phase 전환
-//
-// MissionLog에서 필요한 데이터 로드:
-//   - 보상 내역 (cleanEnergyEarned, co2ReducedKg, intimacyEarned)
-//   - 탄소강도 (carbonIntensityAtCompletion) → 전장 → 적 결정
-//   - 미션 카테고리·타입 등은 표시용 옵션
-//
-// Dino 현재 상태도 조회.
-// 진척도 바의 "before/after" 표시를 위해 cleanEnergyBefore = totalCleanEnergy - cleanEnergyEarned 로 역산
+// D14 수정: MissionLog의 stageBefore/stageAfter 사용 + evolution prop 전달
 
 import { notFound, redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/auth/supabase-server";
@@ -28,6 +21,7 @@ export default async function BattlePage({ params }: PageProps) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/signin");
 
+  // D14: stageBefore/stageAfter 추가 select
   const log = await prisma.missionLog.findUnique({
     where: { id: missionLogId },
     select: {
@@ -37,6 +31,8 @@ export default async function BattlePage({ params }: PageProps) {
       co2ReducedKg: true,
       intimacyEarned: true,
       carbonIntensityAtCompletion: true,
+      stageBefore: true,
+      stageAfter: true,
     },
   });
   if (!log || log.userId !== user.id) notFound();
@@ -56,17 +52,24 @@ export default async function BattlePage({ params }: PageProps) {
   const battlefield = getBattlefield(Number(log.carbonIntensityAtCompletion));
   const enemy = ENEMY_META[battlefield];
 
-  // before/after 역산. 진화로 단계가 바뀐 경우에도 cleanEnergy 자체는 동일하게 차감
+  // before/after 역산
   const cleanEnergyAfter = dino.totalCleanEnergy;
   const cleanEnergyBefore = cleanEnergyAfter - log.cleanEnergyEarned;
+
+  // D14: 진화 여부는 MissionLog 두 stage 비교 (새로고침해도 재현 가능)
+  const evolved =
+    log.stageBefore !== log.stageAfter
+      ? { from: log.stageBefore, to: log.stageAfter }
+      : null;
 
   return (
     <BattlePageClient
       dino={{
         name: dino.name,
         species: dino.species,
-        stageBefore: dino.stage, // 진화 직후라도 결과 화면에선 현재 단계 표시
-        stageAfter: dino.stage,
+        // D14: 인과 흐름대로 result는 stageBefore, evolution이 stageAfter로 전환 연출
+        stageBefore: log.stageBefore,
+        stageAfter: log.stageAfter,
         cleanEnergyBefore,
         cleanEnergyAfter,
       }}
@@ -76,6 +79,7 @@ export default async function BattlePage({ params }: PageProps) {
         intimacyEarned: log.intimacyEarned,
       }}
       enemy={enemy}
+      evolved={evolved}
     />
   );
 }

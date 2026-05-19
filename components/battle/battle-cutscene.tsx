@@ -24,7 +24,11 @@ export interface BattleCutsceneProps {
 
 const TOTAL_DURATION_MS = 2500;
 
-export function BattleCutscene({ dino, enemy, onComplete }: BattleCutsceneProps) {
+export function BattleCutscene({
+  dino,
+  enemy,
+  onComplete,
+}: BattleCutsceneProps) {
   useEffect(() => {
     const t = setTimeout(onComplete, TOTAL_DURATION_MS);
     return () => clearTimeout(t);

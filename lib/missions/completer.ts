@@ -5,21 +5,21 @@
 // 2. 최신 WorldSnapshot에서 carbonIntensity 캡처
 // 3. 보상 계산 (reward-calculator)
 // 4. Dino.totalCleanEnergy / intimacy / totalCo2Reduced 갱신
-// 5. 진화 체크 (EGG→HATCHLING, HATCHLING→ADULT)
-// 6. MissionLog 영구 기록
+// 5. 진화 체크 (EGG→HATCHLING, HATCHLING→ADULT) — D14 추가
+// 6. MissionLog 영구 기록 (stageBefore/stageAfter 포함 — D14 추가)
 //
 // 반환값:
 // - 보상 내역 (모달·전투 결과 표시용)
 // - 진화 여부 (D13 전투 컷씬 → D14 진화 연출로 연결)
 
-import type { PrismaClient } from "@prisma/client";
+import type { DinoStage, PrismaClient } from "@prisma/client";
 import {
   calculateReward,
   applyIntimacy,
   calculateCo2Reduced,
   type RewardBreakdown,
 } from "./reward-calculator";
-import { shouldEvolve } from "@/lib/dino/evolution";
+import { applyEvolution, shouldEvolve } from "@/lib/dino/evolution";
 
 export type CompleteFailReason =
   | "MISSION_NOT_FOUND"
@@ -35,8 +35,12 @@ export type CompleteResult =
       reward: RewardBreakdown;
       co2ReducedKg: number;
       /** 진화 발생 여부 — null이면 진화 안 함 */
-      evolved: { from: string; to: string } | null;
-      dino: { totalCleanEnergy: number; intimacy: number; stage: string };
+      evolved: { from: DinoStage; to: DinoStage } | null;
+      dino: {
+        totalCleanEnergy: number;
+        intimacy: number;
+        stage: DinoStage;
+      };
     }
   | { ok: false; reason: CompleteFailReason };
 
@@ -102,8 +106,13 @@ export async function completeMission(
     const nextIntimacy = applyIntimacy(dino.intimacy, reward.intimacyDelta);
 
     // 5) 진화 체크 (현재 stage 기준)
+    // stageBefore는 항상 dino.stage (트랜잭션 진입 시점의 현재 단계).
+    // stageAfter는 진화하면 nextStage, 아니면 stageBefore와 동일.
+    // MissionLog에 두 값이 다르면 진화 발생 — battle 페이지가 evolution phase 트리거.
+    const stageBefore = dino.stage;
     const nextStage = shouldEvolve(dino.stage, nextCleanEnergy);
-    const evolved = nextStage ? { from: dino.stage, to: nextStage } : null;
+    const stageAfter = nextStage ?? stageBefore;
+    const evolved = nextStage ? { from: stageBefore, to: nextStage } : null;
 
     // 6) Mission 완료 처리 (compoundWhere로 race 방지: completedAt이 여전히 null일 때만)
     const updatedMission = await tx.mission.updateMany({
@@ -115,36 +124,25 @@ export async function completeMission(
       return { ok: false, reason: "ALREADY_COMPLETED" } as const;
     }
 
-    // 7) Dino 갱신 (진화 시 stage·hatchedAt·evolvedAt도 업데이트)
-    const dinoUpdate: {
-      totalCleanEnergy: number;
-      intimacy: number;
-      totalCo2Reduced: { increment: number };
-      stage?: typeof nextStage extends null
-        ? never
-        : NonNullable<typeof nextStage>;
-      hatchedAt?: Date;
-      evolvedAt?: Date;
-    } = {
-      totalCleanEnergy: nextCleanEnergy,
-      intimacy: nextIntimacy,
-      totalCo2Reduced: { increment: co2ReducedKg },
-    };
-    if (nextStage === "HATCHLING") {
-      dinoUpdate.stage = "HATCHLING";
-      dinoUpdate.hatchedAt = now;
-    } else if (nextStage === "ADULT") {
-      dinoUpdate.stage = "ADULT";
-      dinoUpdate.evolvedAt = now;
-    }
-
-    const updatedDino = await tx.dino.update({
+    // 7) Dino 보상 갱신 (stage는 아직 그대로 — 진화는 별도 step에서)
+    await tx.dino.update({
       where: { userId },
-      data: dinoUpdate,
-      select: { totalCleanEnergy: true, intimacy: true, stage: true },
+      data: {
+        totalCleanEnergy: nextCleanEnergy,
+        intimacy: nextIntimacy,
+        totalCo2Reduced: { increment: co2ReducedKg },
+      },
     });
 
-    // 8) MissionLog 영구 기록
+    // 8) 진화 적용 (stage/hatchedAt/evolvedAt) — nextStage가 있을 때만
+    // applyEvolution이 SSoT. completer는 호출만.
+    let finalStage: DinoStage = stageBefore;
+    if (nextStage) {
+      const evolvedDino = await applyEvolution(tx, dino.id, nextStage);
+      finalStage = evolvedDino.stage;
+    }
+
+    // 9) MissionLog 영구 기록 (D14: stageBefore/stageAfter 포함)
     const log = await tx.missionLog.create({
       data: {
         userId,
@@ -156,6 +154,8 @@ export async function completeMission(
         cleanEnergyEarned: reward.finalReward,
         co2ReducedKg,
         intimacyEarned: nextIntimacy - dino.intimacy, // 실제 증가량 (cap 반영)
+        stageBefore,
+        stageAfter,
         completedAt: now,
       },
       select: { id: true },
@@ -168,9 +168,9 @@ export async function completeMission(
       co2ReducedKg,
       evolved,
       dino: {
-        totalCleanEnergy: updatedDino.totalCleanEnergy,
-        intimacy: updatedDino.intimacy,
-        stage: updatedDino.stage,
+        totalCleanEnergy: nextCleanEnergy,
+        intimacy: nextIntimacy,
+        stage: finalStage,
       },
     };
   });

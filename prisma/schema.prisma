@@ -251,6 +251,11 @@ model MissionLog {
 
   completedAt                 DateTime     @default(now())
 
+  /// stageBefore != stageAfter 이면 이 미션 완료로 진화 발생
+  /// battle 페이지가 두 값을 비교해 evolution phase 트리거
+  stageBefore                 DinoStage
+  stageAfter                  DinoStage
+
   @@index([userId, completedAt])
   @@map("mission_logs")
 }

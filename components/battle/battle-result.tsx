@@ -1,9 +1,13 @@
 // SC-07 전투 결과 화면
 // 컷씬 종료 후 표시. 보상 카운트업 + 진척도 바 차오르는 모션
+//
+// D14: 진화가 발생해도 result는 진화 전(stageBefore) 단계로 표시.
+// 진척도 바도 stageBefore 임계값 기준 — 진화 직전이면 바가 100%로 꽉 차며
+// "곧 진화한다"는 시각 신호 → 다음 evolution phase로 자연스럽게 연결.
+// "계속하기" 클릭 시 라우팅은 부모(BattlePageClient)가 결정 (진화 여부에 따라 분기).
 
 "use client";
 
-import { useRouter } from "next/navigation";
 import { motion, useMotionValue, useTransform, animate } from "motion/react";
 import { useEffect, useState } from "react";
 import { DinoDisplay } from "@/components/dino/dino-display";
@@ -17,7 +21,7 @@ export interface BattleResultProps {
   dino: {
     name: string;
     species: DinoSpecies;
-    // 컷씬 직전 (=완료 직전) 상태. 진척도 바의 시작값 계산에 사용
+    // 컷씬 직전 (=완료 직전) 상태. 결과 화면이 표시하는 단계 + 진척도 바 기준
     stageBefore: DinoStage;
     cleanEnergyBefore: number;
     // 완료 직후 상태. 진척도 바의 종료값 계산에 사용
@@ -30,18 +34,35 @@ export interface BattleResultProps {
     intimacyEarned: number;
   };
   enemy: EnemyMeta;
+  /**
+   * "계속하기" 클릭 핸들러 (D14 추가)
+   * - 진화 발생: BattlePageClient가 evolution phase로 전환
+   * - 진화 없음: BattlePageClient가 router.replace('/')로 메인 이동
+   */
+  onContinue: () => void;
 }
 
-export function BattleResult({ dino, reward, enemy }: BattleResultProps) {
-  const router = useRouter();
+export function BattleResult({
+  dino,
+  reward,
+  enemy,
+  onContinue,
+}: BattleResultProps) {
   const dinoMeta = SPECIES_META[dino.species];
 
-  // 진척도 바는 stageAfter 기준으로 계산. 진화한 경우 새 단계의 0부터 시작
-  const progressAfter = getEvolutionProgress(dino.stageAfter, dino.cleanEnergyAfter);
-  const progressBefore = getEvolutionProgress(dino.stageAfter, dino.cleanEnergyBefore);
+  // D14: 진척도 바는 stageBefore 기준으로 계산.
+  // 진화가 발생한 경우 cleanEnergyAfter가 임계값을 넘어 바가 100%로 꽉 참 — 의도된 동작.
+  const progressBefore = getEvolutionProgress(
+    dino.stageBefore,
+    dino.cleanEnergyBefore,
+  );
+  const progressAfter = getEvolutionProgress(
+    dino.stageBefore,
+    dino.cleanEnergyAfter,
+  );
 
   const fromPercent = Math.max(0, Math.min(100, progressBefore.percent));
-  const toPercent = progressAfter.percent;
+  const toPercent = Math.max(0, Math.min(100, progressAfter.percent));
 
   return (
     <div className="flex flex-col gap-4">
@@ -53,12 +74,12 @@ export function BattleResult({ dino, reward, enemy }: BattleResultProps) {
         </h1>
       </div>
 
-      {/* 공룡 vs 적 — 적은 흐려진 처리 */}
+      {/* 공룡 vs 적 — 적은 흐려진 처리. D14: dino는 stageBefore로 표시 */}
       <div className="flex items-center justify-center gap-4 rounded-2xl bg-white py-4 shadow-sm">
         <div className="flex flex-col items-center">
           <DinoDisplay
             species={dino.species}
-            stage={dino.stageAfter}
+            stage={dino.stageBefore}
             size="sm"
           />
           <p className="mt-1 text-xs text-stone-600">{dino.name}</p>
@@ -96,8 +117,8 @@ export function BattleResult({ dino, reward, enemy }: BattleResultProps) {
         </div>
       </div>
 
-      {/* 진척도 바 */}
-      {progressAfter.target !== null && (
+      {/* 진척도 바 — stageBefore 기준. ADULT면 target=null이라 숨김 */}
+      {progressBefore.target !== null && (
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="mb-1.5 flex items-center justify-between text-xs">
             <span className="text-stone-600">{dino.name} 누적 클린에너지</span>
@@ -116,16 +137,17 @@ export function BattleResult({ dino, reward, enemy }: BattleResultProps) {
             />
           </div>
           <p className="mt-1.5 text-[11px] text-stone-500">
-            {nextStageLabel(dino.stageAfter)}까지{" "}
-            {Math.max(0, (progressAfter.target ?? 0) - dino.cleanEnergyAfter)} 남음
+            {nextStageLabel(dino.stageBefore)}까지{" "}
+            {Math.max(0, (progressBefore.target ?? 0) - dino.cleanEnergyAfter)}{" "}
+            남음
           </p>
         </div>
       )}
 
-      {/* 계속하기 버튼 */}
+      {/* 계속하기 버튼 — 진화 분기는 부모가 결정 */}
       <motion.button
         type="button"
-        onClick={() => router.push("/")}
+        onClick={onContinue}
         className="rounded-lg bg-amber-600 py-3 text-sm font-medium text-white hover:bg-amber-700"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -179,9 +201,7 @@ function AnimatedNumber({
 }) {
   const count = useMotionValue(from);
   const rounded = useTransform(count, (v) =>
-    decimals === 0
-      ? Math.round(v).toString()
-      : v.toFixed(decimals),
+    decimals === 0 ? Math.round(v).toString() : v.toFixed(decimals),
   );
   const [display, setDisplay] = useState(rounded.get());
 

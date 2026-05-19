@@ -116,7 +116,7 @@ export default function OnboardingPage() {
           disabled={!canSubmit}
           className="mt-2 w-full rounded-lg bg-amber-600 py-3 text-sm font-semibold text-white disabled:bg-stone-300"
         >
-          {submitting ? "등록 중..." : "다음 — 알 선택하기"}
+          {submitting ? "등록 중..." : "알 선택하기"}
         </button>
       </form>
     </div>
