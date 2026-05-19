@@ -164,7 +164,7 @@
 
 **이유**:
 
-- 27개 API 명세서에 이미 `/api/auth/{signup,signin,signout,reset-password}` 4개가 박혀 있어 일관성.
+- 27개 API 명세서에 이미 `/api/auth/{signup,signin,signout,reset-password}` 4개가 입력되어 있어 일관성.
 - 외부에서 같은 API를 curl·Postman으로 호출 가능 → 시연 환경에서 디버깅 용이.
 - Phase 2에서 NestJS 백엔드로 분리할 가능성을 열어두려면 Route Handler 형태가 이식 쉬움.
 - `@supabase/ssr`은 토큰을 HTTP-only 쿠키로 관리해 XSS 노출 차단 + SSR과 호환.
@@ -196,7 +196,7 @@
 
 **이유**:
 
-- middleware는 API Route 포함 모든 요청을 통과한다. 거기서 redirect를 박으면 401 JSON을 반환해야 할 API 호출이 HTML redirect로 변질됨.
+- middleware는 API Route 포함 모든 요청을 통과한다. 거기서 redirect를 입력하면 401 JSON을 반환해야 할 API 호출이 HTML redirect로 변질됨.
 - redirect 정책이 그룹별로 다르다: `(auth)`는 인증되어 있으면 `/`로, `(main)`·`onboarding`은 미인증이면 `/signin`으로. 각자 layout이 적절한 자리.
 - `getSession()`은 쿠키를 그대로 신뢰해 변조 가능. `getUser()`는 Supabase에 검증 요청 → 안전.
 
@@ -491,3 +491,58 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 - 진화 발생 시 결과 페이지에서 분기해 D14 진화 연출로 전환. 현재는 stageBefore=stageAfter로 처리.
 - MissionLog에 stageBefore 컬럼 추가 검토 (D14 진행 시).
 - motion의 keyframes/times/ease 배열 길이 규칙(N/N/N-1) 주의. 길이 불일치 시 경고 없이 폴백되므로 D14·이후 작업에서도 의식.
+
+---
+
+## 14. 진화 시스템 — 트랜잭션 일체화 + MissionLog에 stageBefore/After 기록
+
+**결정**: 미션 완료(D12) 트랜잭션 안에서 진화 판정·적용을 함께 처리. 진화 발생 시 Dino.stage·hatchedAt|evolvedAt 갱신과 MissionLog 기록을 같은 `prisma.$transaction`에서 커밋. 진화 정보는 두 곳에 이중 기록 — `/api/missions/complete` 응답의 `evolved: { from, to } | null` 필드와 MissionLog의 `stageBefore`/`stageAfter` 컬럼. battle 페이지는 MissionLog 두 값을 비교해 evolution phase 트리거 여부를 결정.
+
+`lib/dino/evolution.ts`는 순수 판정(`shouldEvolve`)과 부수효과 적용(`applyEvolution`)을 분리. completer는 두 함수를 조합하기만 함. battle 페이지의 phase 흐름은 `cutscene → result → evolution`으로 확장하되, evolution은 진화 발생 시에만 진입. result 화면의 DinoDisplay·진척도 바는 모두 stageBefore 기준 — 진화 직전 단계로 표시되고, 진척도 바는 임계값 100%로 꽉 차서 다음 evolution phase의 시각적 빌드업이 됨.
+
+**이유**:
+
+- 보상 적립과 진화는 의미적으로 같은 트랜잭션의 일부. cleanEnergy가 임계값을 넘는 순간이 곧 진화 시점이라 분리하면 일관성 깨짐(예: 적립 성공 + 진화 실패 시 다음 미션 완료까지 진화 지연).
+- MissionLog에 두 stage를 박은 이유는 시연 재현성. battle URL을 다시 방문해도 진화 phase가 동일하게 재생됨. 응답 필드만 있으면 새로고침 시 진화 정보 소실. ADR 13에서 phase 전환을 한 페이지로 묶은 정책(새로고침 시 컷씬 재생)과 일관.
+- 응답 필드도 같이 두는 이유는 클라이언트가 MissionLog 두 컬럼을 또 fetch하지 않아도 즉시 분기 가능. battle 페이지는 서버 컴포넌트라 어차피 DB 조회를 하므로 응답 필드는 mission-complete-modal 등 다른 클라이언트 호출자를 위한 잔여 자산.
+- `shouldEvolve`(순수)와 `applyEvolution`(부수효과) 분리는 테스트 용이성·재사용성 + 진화 로직 SSoT 보장. 호출자가 stage 전이별 timestamp 분기(hatchedAt vs evolvedAt)를 직접 알 필요 없음.
+- result 화면이 stageBefore를 표시하는 이유는 인과 흐름 — "이 단계의 dino가 미션 수행 → 보상 → 진화". stageAfter로 표시하면 "이미 진화한 상태에서 보상 받음"이 되어 evolution phase의 클라이맥스가 약해짐. 진척도 바도 같은 기준으로 통일.
+
+**대안**:
+
+- 진화를 별도 API/cron으로 분리 — 사용자 액션과 진화 시점이 분리되어 시연 임팩트 손해. 트랜잭션 일관성도 깨짐.
+- MissionLog에 진화 정보 미기록, 응답에만 — 시연 재현성 손해(ADR 13 정책 위반).
+- 별도 페이지 `/evolution/[id]` — ADR 13에서 phase 묶음 결정을 뒤집는 셈. 새로고침 시점에 따른 건너뜀/이중 재생 문제 재발.
+- `applyEvolution` 인라인 — completer 안에서 stage별 timestamp 분기를 인라인으로 처리하면 D17 관리자 패널이 강제 진화시킬 때 또 같은 분기 작성. SSoT 깨짐.
+- result도 stageAfter — D13 코드 그대로지만 인과 흐름 깨짐.
+
+**후속**:
+
+- D17 관리자 패널의 "공룡 단계 직접 설정"이 `applyEvolution`을 재사용하면 stage·timestamp 갱신이 자동 일관. shouldEvolve 우회 강제 진화도 같은 함수로 처리 가능.
+- BRACHIO·TRICERA의 `evolutionLines` 카피는 빈 문자열 placeholder. Phase 2에서 두 종 활성화 시 작성. EvolutionScene이 빈 문자열일 때 대사 블록 자체를 안 렌더링하도록 가드되어 있음.
+- 진화 임계값(100, 500)은 evolution.ts의 SSoT 상수. D24 회고에서 24일 시연 데이터 기준으로 재검토 — 너무 빠르면 진화가 시연 초반에 다 끝나고, 너무 느리면 ADULT 못 봄. 더미 사용자 데이터(D15)로도 검증.
+- 진화 두 번이 한 미션에서 발생할 수 없음(EGG→ADULT 점프). `shouldEvolve`가 한 단계씩만 반환하기 때문. 미션 보상이 500 이상이면 발생 가능하나 현재 풀의 baseReward 최대가 그 미만이라 실질적으로 불가. 정책으로 기록.
+- D18 더미 데이터 시드에서 일부 사용자를 ADULT로 초기화하려면 `applyEvolution`을 두 번 호출하거나 직접 Dino update + stageBefore/After를 적당히 채운 MissionLog 시드. 두 단계 점프는 안 함.
+
+---
+
+## 15. 더미 사용자 — User row만 생성, 활동은 시드 시점 MissionLog로
+
+**결정**: 75명 더미(15 길드 × 5명) 시드. Supabase Auth 우회, User row + `isDummy: true`만 생성. 자정 cron은 더미 제외. 더미의 "활동"은 시드 시점에 과거 MissionLog 5~20개를 결정론적 hash로 입력하는 방식. 닉네임·Dino 분포·MissionLog 모두 인덱스 기반이라 재실행 시 동일 결과. MissionPool과 `calculateCo2Reduced`를 그대로 재사용해 본인 데이터와 동일 경로로 생성.
+
+**이유**:
+
+- 길드 점수·리더보드·통계가 본인 1명만으로는 시연 임팩트 부족. 길드당 5명은 "동네 단위"가 살아나는 최소치.
+- Auth 우회는 시연 토이 범위 결정. createUser API·이메일 충돌 회피 비용이 시연 가치보다 큼.
+- Cron 더미 제외는 ADR 11 후속(60초 한도)을 해소. 더미는 매일 미션 받을 필요 없음 — 시드 시점 입력으로 충분.
+- 시드로 재현성·디버깅·시연 일관성 확보.
+
+**대안**:
+
+- Supabase Admin API로 진짜 auth user → 인증 비용 무가치.
+- 더미 활동 시뮬레이션 cron → Phase 2로 미룸.
+
+**후속**:
+
+- D17 리더보드·D18 던전 기여도 카운트에서 더미 처리 정책 확정 필요.
+- D20 통계: 본인 통계는 본인 로그만, 길드 평균은 더미 포함.

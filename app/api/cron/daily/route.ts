@@ -1,7 +1,7 @@
 // 매일 KST 자정(UTC 15:00) Vercel Cron 트리거
 //
 // 알을 받은 모든 사용자에게 오늘자 미션 3개 발급 (사용자별 commit)
-// TODO D15: dummy-activity (자정+5분 더미 활동 시뮬레이션)
+// 더미 사용자(isDummy=true)는 시드 시점에 과거 MissionLog만 박혀 있고 실시간 미션은 발급하지 않음
 // TODO D24: cleanup-snapshots (주간, 7일 이상 된 데이터 정리)
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,9 +18,9 @@ export async function GET(req: NextRequest) {
   const startedAt = Date.now();
   const now = new Date();
 
-  // 미션 발급 대상: 알을 받은 사용자 (Dino 존재). 더미 포함.
+  // 미션 발급 대상: 알을 받은 사용자 (Dino 존재, 더미 제외)
   const users = await prisma.user.findMany({
-    where: { dino: { isNot: null } },
+    where: { dino: { isNot: null }, isDummy: false },
     select: { id: true },
   });
 
