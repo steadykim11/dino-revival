@@ -1,4 +1,5 @@
 import { FuelMix } from "./fuel-mix";
+import type { DungeonState } from "./dungeon";
 
 /**
  * 5분 단위 전력망 상태 = DB(WorldSnapshot)와 1:1 매핑되는 도메인 타입
@@ -46,19 +47,6 @@ export interface WorldStateResponse {
     battlefield: Battlefield;
     isFallback: boolean;
   };
-  dungeon:
-    | { active: false; instance: null }
-    | {
-        active: true;
-        instance: {
-          id: string;
-          type: "PEAK";
-          activatedAt: string;
-          expiresAt: string;
-          remainingSec: number;
-          triggerReserveRate: number | null;
-          triggerCarbonIntensity: number | null;
-        };
-      };
+  dungeon: DungeonState;
   todayForecast: TodayForecastResponse | null;
 }

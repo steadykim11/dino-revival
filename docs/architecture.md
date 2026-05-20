@@ -571,3 +571,34 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 - Phase 2에 LeaderboardCache를 Redis로 이전 (schema 정책 명시).
 - D17 SC-11 리더보드 UI가 이 두 엔드포인트 소비.
 - D18 던전 발령 시 길드 기여도 카운트와의 관계 정리 필요.
+
+---
+
+## 17. 피크 던전 — Lifecycle SSoT + 결정론적 미션 분배 + 더미 가상 기여
+
+**결정**: 던전 라이프사이클(activate·end·sweep·getCurrentActive)을 `lib/dungeon/lifecycle.ts` SSoT로 분리하고, 단일 활성을 트랜잭션 안에서 보장한다(idempotent). 발령 = 60분, 만료는 lazy + 호출 시 sweep — 별도 cron schedule 추가 없이 기존 `cron/realtime`에 monitor 한 호출을 얹는다. 던전 미션은 MissionPool에서 dungeonId hash 기반으로 결정론적으로 2개 선정해 같은 던전의 모든 실유저가 동일한 미션을 받는다. 더미는 발급 제외, 대신 길드 기여도 위젯에서 `hash(dungeonId, userId) % 3`로 가상 카운트를 합산한다. 던전 종료 후에도 발급된 미션은 당일 자정까지 유효(완료 가능) — 시연 안전망. /world/state의 dungeon 응답은 `expiresAt > now` 가드로 lazy 만료가 자연스럽게 작동.
+
+**이유**:
+
+- lifecycle SSoT 분리: trigger·end·monitor 세 진입점이 같은 activate/end를 호출하므로 단일 활성 보장과 sweep 로직이 한 곳에 있어야 일관. 트랜잭션 안에서 sweep + 활성 확인 + 생성을 묶어 동시 호출(관리자 더블 클릭)에도 정확히 1개만 created.
+- 신규 cron schedule 미추가: 기존 `cron/realtime`이 이미 5분마다 도는 hot path. monitor 추가 비용은 쿼리 2~3개 + 수십 ms. 시연 토이 범위에서 자동 트리거 발생은 거의 0이지만 sweep 가치는 있음.
+- 결정론적 미션 분배: 같은 던전에서 모든 사용자가 같은 미션 2개를 받는 게 "전국 단위 비상" 컨셉에 부합. UUID 첫 8자 hash로 풀에서 modulo 선택 — 재실행 안전, 풀 변동 시에도 안정.
+- 더미 가상 기여(ADR 15 후속 회수): 시드 시점 MissionLog는 던전 발령 시각과 매칭 안 됨. 시연 직후 발령된 던전에서 더미 기여 0이면 "동네가 함께" 카피가 깨짐. hash 가상 카운트는 ADR 15의 결정론적 데이터 원칙과 일관.
+- 미션 만료 정책: 요약본의 "별도 Cron 없이 조회 시 expiresAt 필터로 처리"와 동일. 던전 종료 시 미션 일괄 만료 안 함 — 던전 시각보다 미션 사용성이 우선.
+
+**대안**:
+
+- 신규 cron `/api/cron/dungeon-monitor` — schedule 1개 추가, 비용 분리되지만 5분 주기가 realtime과 동일이라 통합 이득이 큼.
+- 별도 dungeon 미션 풀 시드 — 시드 추가 + idempotent 가드(ADR 11 후속) 다시 짜야 함. UI 카피 오버라이드로 임팩트 확보 가능해 풀 추가 불필요.
+- 사용자별 무작위 미션 — "전국 비상" 컨셉 약화, 가상 기여 검증도 복잡.
+- 더미 가상 기여 미적용 — 시연 임팩트 손해.
+- 던전 종료 시 미션 일괄 만료 — 사용자가 막 완료하려던 미션 사라짐. 시연 도중 발생 시 치명적.
+
+**후속**:
+
+- ADR 16의 LeaderboardCache는 시즌 누적이라 던전 기여도와 별개. 던전 contribution은 캐시 없이 던전 페이지 진입 시 1회 조회 — 던전 활성 동안만 호출되는 페이지라 부하 미미.
+- MissionLog에 `dungeonId` 컬럼 없음 → 기여도 집계가 `missionType + 시각 필터`에 의존. 정확도보다 단순함 우선. 두 던전이 같은 사용자에게 겹치는 시나리오(현 정책상 불가)에선 잔여 미션이 다른 던전의 기여도로 합산될 가능성 있음. Phase 2에서 컬럼 추가 검토.
+- 자동 발령 임계(예비율 10%)는 한국 전력망에서 실제 발생 가능성 낮음. monitor가 항상 ALREADY_ACTIVE 또는 ABOVE_THRESHOLD 반환할 것 — 정상.
+- D19 관리자 패널이 trigger·end 두 엔드포인트를 호출 (SC-13). 본인 user.id가 ADMIN_USER_IDS에 등록되어 있어야 시연 가능.
+- UI(SC-09 던전 페이지 + 메인 배너)는 D18 후속 묶음. 메인 배너는 자체 /world/state 폴링 — CarbonClock의 useWorldState 훅과 통합은 메인 페이지 리팩토링 유발해 Phase 2.
+- 와이어프레임의 "보상 2배 표기"는 reward-calculator의 `dungeonMultiplier=2.0`(D12 기 반영)으로 자동. UI는 baseReward × 2 표시.

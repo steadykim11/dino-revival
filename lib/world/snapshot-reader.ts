@@ -1,5 +1,5 @@
 // lib/world/snapshot-reader.ts
-import { Prisma } from "@prisma/client";
+import { type Dungeon, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { FuelMixSchema, type FuelMix } from "@/lib/types/fuel-mix";
 import type {
@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types/world-snapshot";
 import { classifyBattlefield } from "./battlefield";
 import { getTodayForecast } from "./peak-forecast";
+import type { DungeonState } from "@/lib/types/dungeon";
 
 /**
  * Prisma Decimal | string | number | null 을 number로.
@@ -54,6 +55,39 @@ function computePercent(mix: FuelMix): FuelMix {
 }
 
 /**
+ * Dungeon row → API 응답 DungeonState 변환.
+ * lifecycle / world-state 응답 양쪽에서 사용 가능하도록 분리.
+ *
+ * 만료 처리: 호출자가 expiresAt > now 보장 (snapshot-reader의 findFirst 가드).
+ * row가 들어왔다는 건 곧 활성이라는 뜻.
+ */
+function buildDungeonState(dungeon: Dungeon | null, now: Date): DungeonState {
+  if (!dungeon) return { active: false, instance: null };
+
+  return {
+    active: true,
+    instance: {
+      id: dungeon.id,
+      type: "PEAK",
+      activatedAt: dungeon.activatedAt.toISOString(),
+      expiresAt: dungeon.expiresAt.toISOString(),
+      remainingSec: Math.max(
+        0,
+        Math.floor((dungeon.expiresAt.getTime() - now.getTime()) / 1000),
+      ),
+      triggerReserveRate:
+        dungeon.triggerReserveRate === null
+          ? null
+          : toNum(dungeon.triggerReserveRate),
+      triggerCarbonIntensity:
+        dungeon.triggerCarbonIntensity === null
+          ? null
+          : toNum(dungeon.triggerCarbonIntensity),
+    },
+  };
+}
+
+/**
  * /world/state 응답을 빌드.
  * snapshot 없으면 null 반환 (라우트가 503 처리).
  */
@@ -91,29 +125,7 @@ export async function readWorldState(): Promise<WorldStateResponse | null> {
       battlefield,
       isFallback: snapshot.isFallback,
     },
-    dungeon: dungeon
-      ? {
-          active: true,
-          instance: {
-            id: dungeon.id,
-            type: "PEAK", // MVP는 단일 종류, Phase 2에서 컬럼화
-            activatedAt: dungeon.activatedAt.toISOString(),
-            expiresAt: dungeon.expiresAt.toISOString(),
-            remainingSec: Math.max(
-              0,
-              Math.floor((dungeon.expiresAt.getTime() - now.getTime()) / 1000),
-            ),
-            triggerReserveRate:
-              dungeon.triggerReserveRate === null
-                ? null
-                : toNum(dungeon.triggerReserveRate),
-            triggerCarbonIntensity:
-              dungeon.triggerCarbonIntensity === null
-                ? null
-                : toNum(dungeon.triggerCarbonIntensity),
-          },
-        }
-      : { active: false, instance: null },
+    dungeon: buildDungeonState(dungeon, now),
     todayForecast,
   };
 }
