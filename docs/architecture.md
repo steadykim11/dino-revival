@@ -627,3 +627,31 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 - "기존값 유지, null이면 now" 규칙의 알려진 한계: HATCHLING으로 되돌렸다가 다시 ADULT로 가면 `evolvedAt`이 첫 ADULT 시점이 아닌 두 번째 시점으로 박힘. 시연 토이에서 발생 가능성·영향 모두 미미라 정책으로 수용.
 - `withAdmin` HOF가 D18 시점엔 NextRequest를 handler에 안 넘겼음. body 파싱이 필요한 PATCH/POST를 위해 시그니처를 `(ctx, req)`로 확장. 기존 dungeon/trigger·end 라우트는 `_req` 인자 추가만으로 호환.
 - BRACHIO·TRICERA 활성화 시 stage select 옵션은 동일 — species는 별도 컬럼이라 관리자 컨트롤 범위 밖.
+
+---
+
+## 19. 통계 대시보드 — 라인차트 1개 우선, 히트맵 컷, recharts 도입
+
+**결정**: SC-10 통계 대시보드를 4개 블록(상단 카드 3개·7일 탄소강도 라인차트·동네 평균 비교·NDR 시장 비교)으로 구성. 와이어프레임의 "차트 2 — 시간대별 활동 히트맵(Should)"은 D20 시점에 컷. 차트 라이브러리는 recharts. `/api/me/stats`·`/api/world/history` 별도 라우트 없이 page에서 prisma 직접 호출 (D17 리더보드 패턴 재사용). 7일 탄소강도는 시간별 평균으로 다운샘플(2,016행 → 168행)해 raw `$queryRaw`로 집계.
+
+**이유**:
+
+- D20은 일정상 "통계 대시보드 + 시연 시나리오 완주" 두 작업이 묶인 날. 통계에 시간 다 쓰면 시연 리허설을 못 함 → 시연 완주가 D24 영상 녹화 사전 검증으로 더 큰 가치.
+- 히트맵은 와이어프레임도 "Should" 표기 = 필수 아님. D21 폴리싱 또는 Phase 2로 미뤄도 시연 시나리오에 영향 없음(SC-10 자체가 5분 시연 마지막 30초만 등장).
+- recharts 채택: motion 도입(ADR 13)과 같은 논리 — "직접 구현보다 라이브러리가 시간 절약 + 시연 품질 확보". LineChart 1개에 30줄. React 19 호환.
+- 별도 API 라우트 미작성: D17 리더보드에서 정한 "서버 컴포넌트가 lib 직접 호출, API self-loopback 회피" 정책 그대로. 통계 페이지 외 다른 호출자가 없으면 라우트는 죽은 코드.
+- 시간별 다운샘플: 5분 단위 원본을 라인차트에 그대로 그리는 것 보다는 시간 평균이 추이 표현에 효율적.
+
+**대안**:
+
+- 히트맵 포함 — 일정 압박, 시연 비중 대비 비용 큼.
+- Chart.js·SVG 자체 구현 — 전자는 React 래퍼 코드 필요, 후자는 시간 소모.
+- `/api/me/stats`·`/api/world/history` 별도 라우트 — 다른 호출자 없는 시점에 작성은 ADR 18(컴포넌트 추출 트리거) "두 번째 호출자가 등장하면 추출" 정책과 어긋남.
+- 5분 원본 그대로 표시 — 시각적 노이즈.
+
+**후속**:
+
+- 히트맵·NDR 차트(라인)는 D21 폴리싱 후보. 시간 남으면 추가, 안 남으면 Phase 2. 레포 구조의 `components/stats/ndr-comparison-chart.tsx` placeholder는 D20 시점에 단순 비교 카드(`ndr-comparison-card.tsx`)로 대체.
+- raw `$queryRaw` 컬럼명: world_snapshots 테이블은 `@@map`으로 snake_case지만 컬럼(`carbonIntensity`)은 매핑 없이 camelCase. raw에서 큰따옴표로 감싸야 함.
+- CLEAN_TO_KWH_RATIO(0.005)는 reward-calculator 평균 비율 추정값. NDR 카드 카피용 정밀도 부담 없음. 정식 환산이 필요하면 reward-calculator에서 상수 끌어와 통일.
+- 동네 비교는 길드원 Dino.totalCleanEnergy 평균 — D16 길드 점수(합계)와 별개 집계. 같은 데이터에 두 집계가 공존하지만 한 화면에서만 평균을 쓰므로 SSoT 부담 없음.
