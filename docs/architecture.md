@@ -503,7 +503,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 **이유**:
 
 - 보상 적립과 진화는 의미적으로 같은 트랜잭션의 일부. cleanEnergy가 임계값을 넘는 순간이 곧 진화 시점이라 분리하면 일관성 깨짐(예: 적립 성공 + 진화 실패 시 다음 미션 완료까지 진화 지연).
-- MissionLog에 두 stage를 박은 이유는 시연 재현성. battle URL을 다시 방문해도 진화 phase가 동일하게 재생됨. 응답 필드만 있으면 새로고침 시 진화 정보 소실. ADR 13에서 phase 전환을 한 페이지로 묶은 정책(새로고침 시 컷씬 재생)과 일관.
+- MissionLog에 두 stage를 넣은 이유는 시연 재현성. battle URL을 다시 방문해도 진화 phase가 동일하게 재생됨. 응답 필드만 있으면 새로고침 시 진화 정보 소실. ADR 13에서 phase 전환을 한 페이지로 묶은 정책(새로고침 시 컷씬 재생)과 일관.
 - 응답 필드도 같이 두는 이유는 클라이언트가 MissionLog 두 컬럼을 또 fetch하지 않아도 즉시 분기 가능. battle 페이지는 서버 컴포넌트라 어차피 DB 조회를 하므로 응답 필드는 mission-complete-modal 등 다른 클라이언트 호출자를 위한 잔여 자산.
 - `shouldEvolve`(순수)와 `applyEvolution`(부수효과) 분리는 테스트 용이성·재사용성 + 진화 로직 SSoT 보장. 호출자가 stage 전이별 timestamp 분기(hatchedAt vs evolvedAt)를 직접 알 필요 없음.
 - result 화면이 stageBefore를 표시하는 이유는 인과 흐름 — "이 단계의 dino가 미션 수행 → 보상 → 진화". stageAfter로 표시하면 "이미 진화한 상태에서 보상 받음"이 되어 evolution phase의 클라이맥스가 약해짐. 진척도 바도 같은 기준으로 통일.

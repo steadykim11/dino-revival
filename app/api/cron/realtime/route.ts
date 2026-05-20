@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
 
   console.log("[cron/realtime]", {
     result: result.kind,
+    dungeon: dungeonResult,
     elapsedMs,
     ...(result.kind === "success" && {
       ts: result.ts.toISOString(),

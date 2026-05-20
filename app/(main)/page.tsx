@@ -4,6 +4,7 @@ import { createServerSupabase } from "@/lib/auth/supabase-server";
 import { prisma } from "@/lib/prisma";
 import { DinoSection } from "@/components/dino/dino-section";
 import { MissionsSection } from "@/components/missions/missions-section";
+import { DungeonBanner } from "@/components/dungeon/dungeon-banner";
 
 export default async function HomePage() {
   // layout 가드 통과 후라 user·dino 존재 보장.
@@ -15,14 +16,14 @@ export default async function HomePage() {
 
   const dino = user
     ? await prisma.dino.findUnique({
-      where: { userId: user.id },
-      select: {
-        name: true,
-        species: true,
-        stage: true,
-        totalCleanEnergy: true,
-      },
-    })
+        where: { userId: user.id },
+        select: {
+          name: true,
+          species: true,
+          stage: true,
+          totalCleanEnergy: true,
+        },
+      })
     : null;
 
   return (
@@ -34,9 +35,7 @@ export default async function HomePage() {
         <CarbonClock />
 
         {/* 2. 던전 배너 — D18 */}
-        <div className="mt-3 rounded-2xl border border-dashed border-stone-300 p-4 text-center text-xs text-stone-400">
-          피크 던전 배너 (D18)
-        </div>
+        <DungeonBanner />
 
         {/* 3. 공룡 영역 — D10·D14 */}
         {dino && (
