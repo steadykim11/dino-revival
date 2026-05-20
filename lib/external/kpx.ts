@@ -49,7 +49,7 @@ export async function fetchWorldSnapshot(): Promise<WorldSnapshotData> {
 
   // KPX의 동시·근접 호출 거부를 회피하기 위한 짧은 대기.
   // 직렬 await만으론 ms 단위로 연속 호출되어 일부 거부 사례 관찰됨.
-  await new Promise((r) => setTimeout(r, 1000));
+  await new Promise((r) => setTimeout(r, 5000));
 
   const d2 = await fetchKpxD2();
 
