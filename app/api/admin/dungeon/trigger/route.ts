@@ -14,7 +14,7 @@ import { issueDungeonMissions } from "@/lib/dungeon/missions";
 
 export const dynamic = "force-dynamic";
 
-export const POST = withAdmin(async ({ user }) => {
+export const POST = withAdmin(async ({ user }, _req) => {
   // 1) 메트릭 추출 (최신 snapshot, 없으면 null로 발령 계속)
   const snapshot = await prisma.worldSnapshot.findFirst({
     orderBy: { ts: "desc" },

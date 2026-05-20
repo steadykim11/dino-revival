@@ -71,7 +71,7 @@ export function MissionsBottomSheet({
           "rounded-t-3xl border-t border-stone-200 bg-white shadow-xl",
           // 양방향 부드러운 max-height 트랜지션
           "overflow-hidden transition-[max-height] duration-300 ease-out",
-          expanded ? "max-h-[480px]" : "max-h-[184px]",
+          expanded ? "max-h-[720px]" : "max-h-[184px]",
         ].join(" ")}
       >
         {/* 헤더 — 탭으로 펼침 토글 */}

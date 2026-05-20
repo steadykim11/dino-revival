@@ -602,3 +602,28 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 - D19 관리자 패널이 trigger·end 두 엔드포인트를 호출 (SC-13). 본인 user.id가 ADMIN_USER_IDS에 등록되어 있어야 시연 가능.
 - UI(SC-09 던전 페이지 + 메인 배너)는 D18 후속 묶음. 메인 배너는 자체 /world/state 폴링 — CarbonClock의 useWorldState 훅과 통합은 메인 페이지 리팩토링 유발해 Phase 2.
 - 와이어프레임의 "보상 2배 표기"는 reward-calculator의 `dungeonMultiplier=2.0`(D12 기 반영)으로 자동. UI는 baseReward × 2 표시.
+
+---
+
+## 18. 관리자 공룡 강제 조정 — applyEvolution 우회 + 인라인 timestamp 분기
+
+**결정**: `/api/admin/dino` PATCH는 `lib/dino/evolution.ts`의 `applyEvolution`을 호출하지 않고, stage·hatchedAt·evolvedAt을 라우트 안에서 직접 분기 update한다. timestamp 규칙은 "기존값 유지, null이면 now" — EGG로 되돌릴 때만 두 timestamp 모두 클리어, HATCHLING/ADULT로 갈 때는 해당 단계에 필요한 timestamp가 null이면 now로 채우고 기존값은 보존. ADR 14의 "관리자 패널이 applyEvolution을 재사용한다"는 후속 가설을 뒤집는 결정.
+
+**이유**:
+
+- `applyEvolution`은 단방향 전제(EGG→HATCHLING→ADULT)로 설계됨. 시연 컨트롤은 임의 방향 전환이 의미 있는 동사(EGG로 되돌려 진화 연출 다시 보기). 단방향 함수를 양방향에 재사용하면 timestamp 일관성 깨짐.
+- evolution.ts의 SSoT를 시연 도구가 깨지 않도록 보호. completer 트랜잭션이 호출하는 핵심 경로는 그대로 유지.
+- "기존값 유지" 규칙으로 ADULT→HATCHLING→ADULT 왕복 같은 비정상 흐름에서도 `evolvedAt`이 첫 시점에 가깝게 보존되어 게임 이력처럼 보임 — 시연 일관성.
+- 분기 로직 자체는 stage 3개 × timestamp 2개로 작아 인라인이 부담스럽지 않음. ADR 18(컴포넌트 추출 트리거)의 "두 번째 호출자가 등장하면 추출" 정책과 일관.
+
+**대안**:
+
+- `applyEvolution` 재사용 — 단방향만 안전, 역방향 시 timestamp 불일치.
+- `applyEvolution`을 양방향 지원으로 확장 — completer 경로의 SSoT가 시연 컨트롤 요구사항으로 오염됨.
+- `lib/dino/admin-adjust.ts` 같은 별도 함수로 추출 — 호출자가 한 곳(/api/admin/dino)뿐이라 추출 가치 낮음.
+
+**후속**:
+
+- "기존값 유지, null이면 now" 규칙의 알려진 한계: HATCHLING으로 되돌렸다가 다시 ADULT로 가면 `evolvedAt`이 첫 ADULT 시점이 아닌 두 번째 시점으로 박힘. 시연 토이에서 발생 가능성·영향 모두 미미라 정책으로 수용.
+- `withAdmin` HOF가 D18 시점엔 NextRequest를 handler에 안 넘겼음. body 파싱이 필요한 PATCH/POST를 위해 시그니처를 `(ctx, req)`로 확장. 기존 dungeon/trigger·end 라우트는 `_req` 인자 추가만으로 호환.
+- BRACHIO·TRICERA 활성화 시 stage select 옵션은 동일 — species는 별도 컬럼이라 관리자 컨트롤 범위 밖.

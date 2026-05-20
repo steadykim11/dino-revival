@@ -12,7 +12,7 @@ import { endDungeon, getCurrentActiveDungeon } from "@/lib/dungeon/lifecycle";
 
 export const dynamic = "force-dynamic";
 
-export const POST = withAdmin(async ({ user }) => {
+export const POST = withAdmin(async ({ user }, _req) => {
   const active = await getCurrentActiveDungeon(prisma);
   if (!active) {
     return NextResponse.json({ ended: false, reason: "NO_ACTIVE_DUNGEON" });
