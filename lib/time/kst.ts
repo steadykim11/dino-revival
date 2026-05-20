@@ -53,3 +53,22 @@ export function getKstMinute(d: Date): number {
   const kst = new Date(d.getTime() + KST_OFFSET_MS);
   return kst.getUTCMinutes();
 }
+
+/**
+ * UTC Date → 다음 KST 자정의 UTC Date.
+ * 즉 "오늘 KST 24:00 = 내일 KST 00:00"을 UTC로 환산.
+ *
+ * Mission.expiresAt 등 "당일 끝나면 만료" 정책에 사용.
+ */
+export function kstNextMidnight(now: Date): Date {
+  const kst = new Date(now.getTime() + KST_OFFSET_MS);
+  const kstNextMidnightMs = Date.UTC(
+    kst.getUTCFullYear(),
+    kst.getUTCMonth(),
+    kst.getUTCDate() + 1,
+    0,
+    0,
+    0,
+  );
+  return new Date(kstNextMidnightMs - KST_OFFSET_MS);
+}

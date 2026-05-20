@@ -5,7 +5,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 import { selectDailyMissions } from "./daily-selector";
-import { toKstDateString } from "@/lib/time/kst";
+import { toKstDateString, kstNextMidnight } from "@/lib/time/kst";
 
 export interface IssueResult {
   userId: string;
@@ -95,19 +95,4 @@ export async function issueDailyMissions(
       error: err instanceof Error ? err.message : String(err),
     };
   }
-}
-
-// UTC Date → 다음 KST 자정의 UTC Date
-function kstNextMidnight(now: Date): Date {
-  const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-  const kstNow = new Date(now.getTime() + KST_OFFSET_MS);
-  const kstNextMidnightMs = Date.UTC(
-    kstNow.getUTCFullYear(),
-    kstNow.getUTCMonth(),
-    kstNow.getUTCDate() + 1,
-    0,
-    0,
-    0,
-  );
-  return new Date(kstNextMidnightMs - KST_OFFSET_MS);
 }
