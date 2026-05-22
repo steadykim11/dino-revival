@@ -81,6 +81,7 @@ export function BattleResult({
             species={dino.species}
             stage={dino.stageBefore}
             size="sm"
+            animated={false}
           />
           <p className="mt-1 text-xs text-stone-600">{dino.name}</p>
         </div>

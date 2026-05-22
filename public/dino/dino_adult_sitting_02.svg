@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- 꼬리 (살짝 다른 위치) -->
+  <path d="M 22 78 Q 2 80 0 72" stroke="currentColor" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <!-- 몸 -->
+  <ellipse cx="50" cy="72" rx="32" ry="18" fill="currentColor"/>
+  <!-- 머리 -->
+  <ellipse cx="78" cy="58" r="14" rx="18" ry="15" fill="currentColor"/>
+  <!-- 등 능선 -->
+  <path d="M 30 58 L 42 52 L 52 56 L 62 50 L 70 54" stroke="currentColor" stroke-width="2" fill="none" opacity="0.6"/>
+  <!-- 눈 가늘게 -->
+  <path d="M 82 56 L 88 56" stroke="#222" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  <!-- 입 -->
+  <path d="M 72 66 L 92 64" stroke="#3a2a25" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+  <!-- 앞다리 -->
+  <ellipse cx="42" cy="88" rx="6" ry="3" fill="currentColor"/>
+  <ellipse cx="58" cy="88" rx="6" ry="3" fill="currentColor"/>
+</svg>

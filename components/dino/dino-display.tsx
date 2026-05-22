@@ -1,23 +1,28 @@
-// 공룡 표시 — 배경 + 움직이는 placeholder SVG.
+// 공룡 표시 — 배경 + 일러스트(또는 SVG placeholder)
 //
-// 디자인 정책 (D10):
-// - 컨테이너 고정 280×200 (모바일 420px 폭 안에 안전)
-// - 배경: species color 기반 그라데이션 (정화/오염 전장은 D14 이후 연동)
-// - 단계별 다른 placeholder + 다른 animation
-//   · EGG: 알 모양, 가끔 흔들림 (wobble)
-//   · HATCHLING: 작은 활발한 형태, 좌우 + 위아래 bobbing
-//   · ADULT: 큰 묵직한 형태, 천천히 좌우
-//
-// D21에 정식 일러스트로 교체 — props 인터페이스 유지하면 호환.
+// D22 수정:
+// - HATCHLING·ADULT에 state machine 적용 (standing/walking/sitting × 2프레임)
+// - SVG는 /public/dino/*.svg에서 로드
+// - animated prop으로 상태 머신 ON/OFF (메인=ON, 컷씬/결과=OFF)
+// - EGG는 기존 egg-wobble CSS 유지
 
+"use client";
+
+import Image from "next/image";
 import type { DinoSpecies, DinoStage } from "@prisma/client";
 import { SPECIES_COLOR_HEX, SPECIES_META } from "@/lib/dino/species";
+import { useIdleStateMachine } from "@/lib/dino/idle-state-machine";
 
 export interface DinoDisplayProps {
   species: DinoSpecies;
   stage: DinoStage;
   /** 크기 옵션 — 메인은 'lg', 카드 미리보기는 'sm' */
   size?: "sm" | "md" | "lg";
+  /**
+   * idle 상태 머신 활성화 (HATCHLING·ADULT만 해당).
+   * 메인 화면=true, 컷씬·결과 화면=false. 기본 true.
+   */
+  animated?: boolean;
 }
 
 const SIZE_MAP = {
@@ -26,10 +31,19 @@ const SIZE_MAP = {
   lg: { container: "h-52 w-full max-w-[280px]", svg: 120 },
 } as const;
 
-export function DinoDisplay({ species, stage, size = "lg" }: DinoDisplayProps) {
+export function DinoDisplay({
+  species,
+  stage,
+  size = "lg",
+  animated = true,
+}: DinoDisplayProps) {
   const meta = SPECIES_META[species];
   const color = SPECIES_COLOR_HEX[meta.color];
   const dim = SIZE_MAP[size];
+
+  // HACHLING, ADULT만 동작 hook 사용
+  const useStateMachine = animated && stage !== "EGG";
+  const idleState = useIdleStateMachine(useStateMachine);
 
   return (
     <div
@@ -64,112 +78,102 @@ export function DinoDisplay({ species, stage, size = "lg" }: DinoDisplayProps) {
       />
 
       {/* 공룡 본체 */}
+      {stage === "EGG" ? (
+        // EGG: 기존 인라인 SVG + egg-wobble
+        <div
+          className="absolute left-1/2 -translate-x-1/2 animate-egg-wobble"
+          style={{ bottom: "20%" }}
+        >
+          <EggSvg color={color} size={dim.svg} />
+        </div>
+      ) : (
+        // HATCHLING·ADULT: 파일 SVG + 상태 머신
+        <DinoFrames
+          stage={stage}
+          color={color}
+          size={dim.svg}
+          idle={idleState}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * HATCHLING·ADULT 프레임 렌더링.
+ * - 12장 모두 미리 마운트하고 opacity 토글로 즉시 전환 (프리로드 + 깜빡임 방지)
+ * - walking facing은 scaleX(-1)
+ * - walking offsetX는 transform translateX
+ */
+function DinoFrames({
+  stage,
+  color,
+  size,
+  idle,
+}: {
+  stage: "HATCHLING" | "ADULT";
+  color: string;
+  size: number;
+  idle: ReturnType<typeof useIdleStateMachine>;
+}) {
+  const stageKey = stage.toLowerCase(); // 'hatchling' | 'adult'
+  const poses = ["standing", "walking", "sitting"] as const;
+
+  const renderSize = stage === "ADULT" ? size * 1.3 : size;
+
+  return (
+    <div
+      className="absolute left-1/2 -translate-x-1/2"
+      style={{
+        bottom: "20%",
+        transform: `translateX(calc(-50% + ${idle.offsetX}px))`,
+        color,
+      }}
+    >
       <div
-        className={`absolute left-1/2 -translate-x-1/2 ${getAnimationClass(stage)}`}
-        style={{ bottom: "20%" }}
+        style={{
+          transform: idle.facing === "left" ? "scaleX(-1)" : undefined,
+          transition: "transform 0.15s linear",
+          width: renderSize,
+          height: renderSize,
+          position: "relative",
+        }}
       >
-        <DinoSvg stage={stage} color={color} size={dim.svg} />
+        {poses.map((pose) =>
+          [1, 2].map((frameNum) => {
+            const isActive = idle.pose === pose && idle.frame === frameNum;
+            return (
+              <Image
+                key={`${pose}-${frameNum}`}
+                src={`/dino/dino_${stageKey}_${pose}_0${frameNum}.svg`}
+                alt=""
+                width={renderSize}
+                height={renderSize}
+                priority
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  opacity: isActive ? 1 : 0,
+                }}
+              />
+            );
+          }),
+        )}
       </div>
     </div>
   );
 }
 
-function getAnimationClass(stage: DinoStage): string {
-  switch (stage) {
-    case "EGG":
-      return "animate-egg-wobble";
-    case "HATCHLING":
-      return "animate-hatchling-bob";
-    case "ADULT":
-      return "animate-adult-sway";
-  }
-}
-
 /**
- * placeholder SVG — D21에 정식 일러스트로 교체 예정.
- * 단계별로 모양과 크기가 다름.
+ * EGG placeholder SVG - 기존과 동일
  */
-function DinoSvg({
-  stage,
-  color,
-  size,
-}: {
-  stage: DinoStage;
-  color: string;
-  size: number;
-}) {
-  if (stage === "EGG") {
-    return (
-      <svg width={size} height={size} viewBox="0 0 100 100">
-        {/* 알 — 타원 + 얼룩 */}
-        <ellipse cx="50" cy="55" rx="32" ry="40" fill={color} opacity="0.9" />
-        <ellipse cx="42" cy="40" rx="6" ry="4" fill="white" opacity="0.4" />
-        <circle cx="58" cy="65" r="3" fill={color} opacity="0.5" />
-        <circle cx="40" cy="70" r="2" fill={color} opacity="0.5" />
-      </svg>
-    );
-  }
-  if (stage === "HATCHLING") {
-    return (
-      <svg width={size} height={size} viewBox="0 0 100 100">
-        {/* 작은 새끼 — 둥근 몸 + 다리 + 작은 꼬리 */}
-        <ellipse cx="50" cy="60" rx="28" ry="22" fill={color} />
-        {/* 머리 */}
-        <circle cx="68" cy="48" r="14" fill={color} />
-        {/* 눈 */}
-        <circle cx="72" cy="46" r="2" fill="white" />
-        <circle cx="73" cy="46" r="1" fill="#222" />
-        {/* 다리 */}
-        <rect x="38" y="78" width="6" height="10" rx="2" fill={color} />
-        <rect x="54" y="78" width="6" height="10" rx="2" fill={color} />
-        {/* 꼬리 */}
-        <path
-          d="M 24 60 Q 16 56 14 50"
-          stroke={color}
-          strokeWidth="6"
-          fill="none"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-  // ADULT — 더 크고 강한 실루엣
+function EggSvg({ color, size }: { color: string; size: number }) {
   return (
-    <svg width={size * 1.3} height={size * 1.1} viewBox="0 0 130 110">
-      {/* 큰 몸체 */}
-      <ellipse cx="60" cy="70" rx="38" ry="26" fill={color} />
-      {/* 큰 머리 */}
-      <ellipse cx="92" cy="55" rx="22" ry="18" fill={color} />
-      {/* 눈 */}
-      <circle cx="100" cy="52" r="3" fill="white" />
-      <circle cx="101" cy="52" r="1.5" fill="#222" />
-      {/* 입 */}
-      <path
-        d="M 86 62 L 108 60"
-        stroke="#222"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      {/* 다리 */}
-      <rect x="40" y="90" width="8" height="14" rx="2" fill={color} />
-      <rect x="58" y="90" width="8" height="14" rx="2" fill={color} />
-      <rect x="72" y="90" width="8" height="14" rx="2" fill={color} />
-      {/* 꼬리 */}
-      <path
-        d="M 24 72 Q 8 65 4 50"
-        stroke={color}
-        strokeWidth="10"
-        fill="none"
-        strokeLinecap="round"
-      />
-      {/* 등 능선 */}
-      <path
-        d="M 35 56 L 45 50 L 55 54 L 65 48 L 75 52"
-        stroke={color}
-        strokeWidth="2"
-        fill="none"
-        opacity="0.5"
-      />
+    <svg width={size} height={size} viewBox="0 0 100 100">
+      <ellipse cx="50" cy="55" rx="32" ry="40" fill={color} opacity="0.9" />
+      <ellipse cx="42" cy="40" rx="6" ry="4" fill="white" opacity="0.4" />
+      <circle cx="58" cy="65" r="3" fill={color} opacity="0.5" />
+      <circle cx="40" cy="70" r="2" fill={color} opacity="0.5" />
     </svg>
   );
 }

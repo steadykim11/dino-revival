@@ -58,7 +58,12 @@ export function BattleCutscene({
           ease: ["easeOut", "linear", "easeIn"],
         }}
       >
-        <DinoDisplay species={dino.species} stage={dino.stage} size="md" />
+        <DinoDisplay
+          species={dino.species}
+          stage={dino.stage}
+          size="md"
+          animated={false}
+        />
       </motion.div>
 
       {/* 적 — 오른쪽 등장 → 가운데 돌진 → 흩어짐 */}

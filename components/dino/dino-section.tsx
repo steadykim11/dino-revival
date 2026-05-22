@@ -44,7 +44,7 @@ export function DinoSection({
 
   return (
     <section className="rounded-2xl bg-white p-4 shadow-sm">
-      <DinoDisplay species={species} stage={stage} size="lg" />
+      <DinoDisplay species={species} stage={stage} size="lg" animated />
 
       <div className="mt-3 text-center">
         <p className="text-base font-semibold">{name}</p>
