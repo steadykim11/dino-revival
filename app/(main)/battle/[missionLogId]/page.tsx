@@ -1,5 +1,6 @@
 // 전투 결과 페이지. 컷씬(2.5초) → 결과 표시 두 단계를 한 페이지에서 phase 전환
 // D14 수정: MissionLog의 stageBefore/stageAfter 사용 + evolution prop 전달
+// D22: intro 인터스티셜 phase 추가 (missionTitle, battlefieldLabel prop 전달)
 
 import { notFound, redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/auth/supabase-server";
@@ -11,6 +12,12 @@ import { BattlePageClient } from "@/components/battle/battle-page-client";
 interface PageProps {
   params: Promise<{ missionLogId: string }>;
 }
+
+const BATTLEFIELD_LABEL = {
+  PURIFIED: "PURIFIED",
+  NORMAL: "NORMAL",
+  POLLUTED: "POLLUTED",
+} as const;
 
 export default async function BattlePage({ params }: PageProps) {
   const { missionLogId } = await params;
@@ -67,7 +74,6 @@ export default async function BattlePage({ params }: PageProps) {
       dino={{
         name: dino.name,
         species: dino.species,
-        // D14: 인과 흐름대로 result는 stageBefore, evolution이 stageAfter로 전환 연출
         stageBefore: log.stageBefore,
         stageAfter: log.stageAfter,
         cleanEnergyBefore,
@@ -79,6 +85,8 @@ export default async function BattlePage({ params }: PageProps) {
         intimacyEarned: log.intimacyEarned,
       }}
       enemy={enemy}
+      missionTitle={log.missionTitle}
+      battlefieldLabel={BATTLEFIELD_LABEL[battlefield]}
       evolved={evolved}
     />
   );

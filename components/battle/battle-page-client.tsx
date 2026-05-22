@@ -12,8 +12,9 @@ import { BattleResult } from "./battle-result";
 import { EvolutionScene } from "./evolution-scene";
 import type { DinoSpecies, DinoStage } from "@prisma/client";
 import type { EnemyMeta } from "@/lib/battle/enemy-types";
+import { BattleIntro } from "./battle-intro";
 
-type Phase = "cutscene" | "result" | "evolution";
+type Phase = "intro" | "cutscene" | "result" | "evolution";
 
 export interface BattlePageClientProps {
   dino: {
@@ -30,6 +31,8 @@ export interface BattlePageClientProps {
     intimacyEarned: number;
   };
   enemy: EnemyMeta;
+  missionTitle: string;
+  battlefieldLabel: string;
   /**
    * 진화 발생 정보 (D14 추가)
    * MissionLog.stageBefore !== stageAfter일 때만 비-null
@@ -42,9 +45,11 @@ export function BattlePageClient({
   dino,
   reward,
   enemy,
+  missionTitle,
+  battlefieldLabel,
   evolved,
 }: BattlePageClientProps) {
-  const [phase, setPhase] = useState<Phase>("cutscene");
+  const [phase, setPhase] = useState<Phase>("intro");
   const router = useRouter();
 
   // result에서 "계속하기" — 진화 있으면 evolution phase, 없으면 메인
@@ -64,9 +69,26 @@ export function BattlePageClient({
   return (
     <div className="px-4 py-6">
       <AnimatePresence mode="wait">
+        {phase === "intro" && (
+          <motion.div
+            key="intro"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <BattleIntro
+              missionTitle={missionTitle}
+              enemy={enemy}
+              battlefieldLabel={battlefieldLabel}
+              onComplete={() => setPhase("cutscene")}
+            />
+          </motion.div>
+        )}
+
         {phase === "cutscene" && (
           <motion.div
             key="cutscene"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
