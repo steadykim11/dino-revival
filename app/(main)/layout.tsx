@@ -18,7 +18,7 @@ import { redirect } from "next/navigation";
  *     바깥 컨테이너에 lg:mr-60(240px)을 주면 콘텐츠가 (viewport - 240) 영역의 중앙에 위치.
  *
  * 인증 가드(D8):
- * - 미인증 시 /signin으로 redirect
+ * - 미인증 시 /landing으로 redirect (SC-01)
  * - 인증됐지만 User row 없으면 /onboarding
  * - User row 있고 Dino row 없음 → /onboarding/egg
  * - 둘 다 있으면 정상 진입
@@ -35,7 +35,7 @@ export default async function MainLayout({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/signin");
+    redirect("/landing");
   }
 
   const profile = await prisma.user.findUnique({
