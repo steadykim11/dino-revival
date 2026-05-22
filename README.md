@@ -120,55 +120,6 @@ public/
   images/         # 스프라이트 이미지
 ```
 
-상세 사양은 `docs/architecture.md`의 "외부 데이터 파이프" 항목 참조.
-
-개발 중 데이터를 누적할 필요가 없을 땐 안 돌려도 됩니다. 그 경우 `/api/world/state`는 503을 반환하고, 메인 화면은 "데이터 준비 중입니다" 스켈레톤을 표시합니다.
-
-## 디렉토리 구조
-
-```
-app/
-  api/            # API 라우트
-  (auth)/         # 비로그인 페이지 (로그인·가입 등)
-  onboarding/   # 온보딩 (프로필 등록, 알 선택)
-  (main)/         # 로그인 후 페이지 + 공통 레이아웃
-  admin/          # 관리자 패널 (시연용)
-components/
-  admin/          # 관리자 시연용
-  layout/         # 헤더·탭바·사이드바
-  world/          # 탄소 시계 등 월드 관련
-  dino/           # 공룡 표시·진화 컷씬
-  missions/       # 미션 카드·바텀시트·모달
-  battle/         # 전투
-  dungeon/        # 던전 배너·페이지 요소
-  leaderboard/    # 길드/전국 리더보드
-  stats/          # 통계 차트
-  profile/        # 이름, 지역 등 온보딩 요소
-lib/
-  auth/           # 계정 인증 및 세션 유지
-  battle/         # 전투 출현 적 도메인
-  external/       # KPX 외부 API
-  world/          # 월드 상태 도메인 로직
-  dino/           # 공룡 도메인
-  missions/       # 미션 선정·보상 로직
-  dungeon/        # 던전 도메인
-  guilds/         # 길드 도메인
-  static-data/    # 정적 자료 (배출계수, 주간 피크 전망 등)
-  hooks/          # React 클라이언트 훅
-  types/          # 도메인 타입
-  time/           # KST 시간 유틸
-  profile/        # 닉네임/동네 변경 쿨다운 상태
-  stats/          # 통계 도메인
-  users/          # 시드용 더미 유저 풀
-prisma/
-  schema.prisma   # DB 스키마
-  seeds/          # 시드 스크립트
-scripts/          # ingest 등 외부 스크립트
-docs/             # 의사결정 기록·자료 출처
-public/
-  images/         # 스프라이트 이미지
-```
-
 자세한 의사결정 기록은 `docs/architecture.md` 참조.
 
 ## 주요 스크립트
