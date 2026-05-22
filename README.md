@@ -117,7 +117,8 @@ prisma/
 scripts/          # ingest 등 외부 스크립트
 docs/             # 의사결정 기록·자료 출처
 public/
-  images/         # 스프라이트``
+  images/         # 스프라이트 이미지
+```
 
 상세 사양은 `docs/architecture.md`의 "외부 데이터 파이프" 항목 참조.
 
