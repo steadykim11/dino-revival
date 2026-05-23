@@ -59,7 +59,7 @@ const POSE_CONFIG: Record<IdlePose, PoseConfig> = {
   },
 };
 
-const WALKING_RANGE_PX = 30;
+const WALKING_RANGE_PX = 70;
 const WALKING_SPEED_PX_PER_FRAME = 0.6; // 60fps 기준 약 36px/sec
 
 function pickNext(current: IdlePose): IdlePose {

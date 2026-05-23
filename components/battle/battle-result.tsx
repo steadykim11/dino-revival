@@ -82,6 +82,7 @@ export function BattleResult({
             stage={dino.stageBefore}
             size="sm"
             animated={false}
+            showBackground={false}
           />
           <p className="mt-1 text-xs text-stone-600">{dino.name}</p>
         </div>

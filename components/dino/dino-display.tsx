@@ -8,7 +8,6 @@
 
 "use client";
 
-import Image from "next/image";
 import type { DinoSpecies, DinoStage } from "@prisma/client";
 import { SPECIES_COLOR_HEX, SPECIES_META } from "@/lib/dino/species";
 import { useIdleStateMachine } from "@/lib/dino/idle-state-machine";
@@ -23,12 +22,13 @@ export interface DinoDisplayProps {
    * 메인 화면=true, 컷씬·결과 화면=false. 기본 true.
    */
   animated?: boolean;
+  showBackground?: boolean;
 }
 
 const SIZE_MAP = {
-  sm: { container: "h-32 w-32", svg: 64 },
-  md: { container: "h-40 w-40", svg: 96 },
-  lg: { container: "h-52 w-full max-w-[280px]", svg: 120 },
+  sm: { container: "h-32 w-32", svg: 96 },
+  md: { container: "h-40 w-40", svg: 140 },
+  lg: { container: "h-52 w-full max-w-[280px]", svg: 140 },
 } as const;
 
 export function DinoDisplay({
@@ -36,6 +36,7 @@ export function DinoDisplay({
   stage,
   size = "lg",
   animated = true,
+  showBackground = true,
 }: DinoDisplayProps) {
   const meta = SPECIES_META[species];
   const color = SPECIES_COLOR_HEX[meta.color];
@@ -48,12 +49,16 @@ export function DinoDisplay({
   return (
     <div
       className={`relative mx-auto overflow-hidden rounded-2xl ${dim.container}`}
-      style={{
-        background: `linear-gradient(160deg, ${color}22 0%, ${color}11 70%, transparent 100%)`,
-      }}
+      style={
+        showBackground
+          ? {
+            background: `linear-gradient(160deg, ${color}22 0%, ${color}11 70%, transparent 100%)`,
+          }
+          : undefined
+      }
     >
-      {/* 배경 패턴 (간단한 점선으로 깊이감) */}
-      <div className="absolute inset-0 opacity-30">
+      {/* 배경 점 패턴 */}
+      < div className="absolute inset-0 opacity-30" >
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern
@@ -69,33 +74,27 @@ export function DinoDisplay({
           </defs>
           <rect width="100%" height="100%" fill="url(#dots)" />
         </svg>
-      </div>
-
-      {/* 바닥 그림자 */}
-      <div
-        className="absolute left-1/2 h-2 w-20 -translate-x-1/2 rounded-full bg-stone-900/15 blur-sm"
-        style={{ bottom: "18%" }}
-      />
+      </div >
 
       {/* 공룡 본체 */}
-      {stage === "EGG" ? (
-        // EGG: 기존 인라인 SVG + egg-wobble
-        <div
-          className="absolute left-1/2 -translate-x-1/2 animate-egg-wobble"
-          style={{ bottom: "20%" }}
-        >
-          <EggSvg color={color} size={dim.svg} />
-        </div>
-      ) : (
-        // HATCHLING·ADULT: 파일 SVG + 상태 머신
-        <DinoFrames
-          stage={stage}
-          color={color}
-          size={dim.svg}
-          idle={idleState}
-        />
-      )}
-    </div>
+      {
+        stage === "EGG" ? (
+          <div
+            className="absolute left-1/2 -translate-x-1/2 animate-egg-wobble"
+            style={{ bottom: "15%" }}
+          >
+            <EggImage color={meta.color} size={dim.svg} />
+          </div>
+        ) : (
+          <DinoFrames
+            stage={stage}
+            color={color}
+            size={dim.svg}
+            idle={idleState}
+          />
+        )
+      }
+    </div >
   );
 }
 
@@ -119,14 +118,14 @@ function DinoFrames({
   const stageKey = stage.toLowerCase(); // 'hatchling' | 'adult'
   const poses = ["standing", "walking", "sitting"] as const;
 
-  const renderSize = stage === "ADULT" ? size * 1.3 : size;
+  const renderSize = stage === "ADULT" ? size * 1.0 : size;
 
   return (
     <div
       className="absolute left-1/2 -translate-x-1/2"
       style={{
-        bottom: "20%",
-        transform: `translateX(calc(-50% + ${idle.offsetX}px))`,
+        bottom: "5%",
+        transform: `translateX(calc(${idle.offsetX}px))`,
         color,
       }}
     >
@@ -142,17 +141,20 @@ function DinoFrames({
         {poses.map((pose) =>
           [1, 2].map((frameNum) => {
             const isActive = idle.pose === pose && idle.frame === frameNum;
+            const url = `/dino/dino_${stageKey}_${pose}_0${frameNum}.png`;
             return (
-              <Image
+              <img
                 key={`${pose}-${frameNum}`}
-                src={`/dino/dino_${stageKey}_${pose}_0${frameNum}.svg`}
+                src={url}
                 alt=""
                 width={renderSize}
                 height={renderSize}
-                priority
                 style={{
                   position: "absolute",
                   inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
                   opacity: isActive ? 1 : 0,
                 }}
               />
@@ -164,16 +166,32 @@ function DinoFrames({
   );
 }
 
-/**
- * EGG placeholder SVG - 기존과 동일
- */
-function EggSvg({ color, size }: { color: string; size: number }) {
+function EggImage({
+  color, size
+}: {
+  color: "red" | "blue" | "green";
+  size: number;
+}) {
+  const eggSize = size * 0.8;
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100">
-      <ellipse cx="50" cy="55" rx="32" ry="40" fill={color} opacity="0.9" />
-      <ellipse cx="42" cy="40" rx="6" ry="4" fill="white" opacity="0.4" />
-      <circle cx="58" cy="65" r="3" fill={color} opacity="0.5" />
-      <circle cx="40" cy="70" r="2" fill={color} opacity="0.5" />
-    </svg>
-  );
+    <div
+      style={{
+        width: eggSize,
+        height: eggSize,
+        position: "relative",
+      }}
+    >
+      <img
+        src={`/dino/egg_${color}.png`}
+        alt=""
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+        }}
+      />
+    </div>
+  )
 }

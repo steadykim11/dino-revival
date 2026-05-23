@@ -63,6 +63,7 @@ export function BattleCutscene({
           stage={dino.stage}
           size="md"
           animated={false}
+          showBackground={false}
         />
       </motion.div>
 

@@ -68,6 +68,7 @@ export function EvolutionScene({
               stage={from}
               size="md"
               animated={false}
+              showBackground={false}
             />
             <span className="text-xs text-neutral-500">
               {STAGE_LABEL[from]}
@@ -101,7 +102,7 @@ export function EvolutionScene({
             }}
             className="flex flex-col items-center gap-2"
           >
-            <DinoDisplay species={species} stage={to} size="md" />
+            <DinoDisplay species={species} stage={to} size="md" animated={false} showBackground={false} />
             <span className="text-xs font-semibold text-neutral-700">
               {STAGE_LABEL[to]}
             </span>
