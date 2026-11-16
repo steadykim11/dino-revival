@@ -75,6 +75,29 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 
 단계를 마치면 이 표의 상태를 갱신한다.
 
+### 병합 전 확인 사항
+
+1·2단계는 구현과 `pnpm check`·`next build`까지 끝났지만 PR이 아직 병합되지 않았다. 브랜치는 `main ← refactor/phase-1 ← refactor/phase-2` 순서로 쌓여 있고, 1단계 PR을 먼저 병합한다. 아래 확인이 끝나면 이 절을 지운다.
+
+- [ ] **1단계 — 수집 스크립트 실제 실행.** `DATABASE_URL`과 `KPX_API_KEY`가 있는 가정용 회선 기기에서 `pnpm job:collect --dry-run` → `pnpm job:collect`. 성공하면 `"snapshot":{"kind":"success",...}`가 출력된다. 지금까지는 환경변수 누락 시 종료 코드 1로 끝나는 것만 확인했다. 수집은 2026-05-22부터 멈춰 있어 병합으로 깨질 기존 루프는 없다.
+- [ ] **2단계 — 로그인 상태의 화면 확인.** 홈·미션 목록, 미션 완료 → 전투 화면, 통계·리더보드·던전, 프로필의 닉네임 중복 확인, 관리자 패널(던전 발령·종료, 공룡 조정, 미션 재생성). 비로그인 상태의 리다이렉트와 401 응답은 확인했다.
+- [ ] **병합 후** Vercel 환경변수 `CRON_SECRET`, `KPX_API_KEY`, `VERCEL_INGEST_URL`, `SUPABASE_SERVICE_ROLE_KEY` 삭제 (선택).
+
+### 3단계 시작 전에 정할 것
+
+- **"시즌 점수"를 시즌제로 만들지, 누적 점수로 둘지.** 지금은 이름만 시즌이고 스키마에 시즌 개념이 없다(길드원 `Dino.totalCleanEnergy`의 합). 이 결정에 따라 `guilds.seasonScore`·`leaderboard_cache` 정리 방식과 `mission_logs`에 길드 정보를 남길지가 달라진다.
+- 3단계는 실제 DB에 되돌리기 어려운 마이그레이션을 적용한다. 1·2단계 병합이 끝난 뒤에 시작한다.
+
+### 3단계에서 할 일 (진단 결과)
+
+- `missions`: 일일 미션 중복 발급을 막는 제약이 없다 → `slot` 컬럼 + `(userId, assignedDate, type, slot)` 유니크.
+- `dinos`: 미션 완료가 누적값을 읽고 덮어써 동시 완료 시 보상이 유실된다 → `increment` 또는 행 잠금.
+- `dungeons`: 단일 활성이 보장되지 않는다 → 부분 유니크 인덱스(`WHERE "isActive"`). `triggerReason`은 enum으로.
+- `mission_logs`: `missionId`에 FK·유니크가 없고 `dungeonId`가 없다 → 둘 다 추가하고, 기여도를 시간 범위로 추정하는 코드를 없앤다.
+- `leaderboard_cache`, `guilds.seasonScore`: 같은 집계의 사본이다 → 삭제하고 쿼리로 계산.
+- `users.regionCode`와 `guildId`: 길드와 지역이 1:1이라 중복이다 → 하나만 유지.
+- `world_snapshots`: `isFallback`(코드에서 더 이상 쓰지 않음)·`temperature`(항상 null) 컬럼과 PK와 중복인 `ts` 인덱스 삭제. 보존 기간 삭제는 하지 않는다(연 10만 행 수준이고 누적 시계열이 자산).
+
 ## 알려진 문제 (해당 단계에서 수정)
 
 - `components/dungeon/dungeon-banner.tsx`의 `if (!cancelled) return;` 조건이 반대라 배너가 갱신되지 않는다 (4단계, Provider 도입 시).
