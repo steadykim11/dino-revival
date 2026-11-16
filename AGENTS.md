@@ -34,7 +34,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 
 아래는 목표 상태다. 기존 코드는 아직 다 따르지 않으며(로드맵 참조), **새로 쓰거나 고치는 코드는 반드시 따른다.**
 
-1. **DB 접근은 `lib/` 안에서만.** `app/`과 `components/`는 `prisma`를 import하지 않고 `lib`의 이름 붙은 함수를 호출한다. DB에 접근하는 파일은 `*.server.ts`로 이름 짓고 `import "server-only"`를 둔다.
+1. **DB 접근은 `lib/` 안에서만.** `app/`과 `components/`는 `prisma`를 import하지 않고 `lib`의 이름 붙은 함수를 호출한다. DB에 접근하는 파일은 `*.server.ts`로 이름 짓고, 클라이언트 컴포넌트에서의 import는 ESLint 규칙으로 막는다. (`server-only` 패키지는 쓰지 않는다 — `jobs/`가 일반 Node로 같은 파일을 실행하는데 그 환경에서는 예외를 던진다.)
 2. **읽기는 서버 컴포넌트가 `lib`을 직접 호출, 쓰기는 Route Handler.** 자기 화면만 쓰는 GET 라우트를 새로 만들지 않는다. (쓰기를 Route Handler로 두는 이유는 ADR 10.)
 3. **세션 확인은 헬퍼 하나로.** 페이지·레이아웃·라우트에서 `supabase.auth.getUser()`를 직접 부르지 않는다.
 4. **라우트 보일러플레이트는 래퍼 하나로.** 인증·JSON 파싱·zod 검증·에러 응답을 라우트마다 손으로 쓰지 않는다.
@@ -54,17 +54,20 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 - 누적값 갱신은 읽고 덮어쓰지 말고 `increment` 또는 행 잠금을 쓴다.
 - 테이블은 snake_case(`@@map`), 컬럼은 camelCase다. raw SQL에서는 컬럼명을 큰따옴표로 감싼다.
 
-## 인프라 (이전 진행 중)
+## 인프라
 
-- 현재: KPX가 클라우드 IP를 차단해, 개인 PC의 PowerShell 루프가 KPX를 호출하고 Vercel의 `/api/ingest/world-snapshot`으로 전송한다.
-- 목표: 홈서버 crontab이 `jobs/`의 스크립트를 실행해 DB에 직접 기록한다. Vercel은 호스팅만 맡고 Vercel Cron·ingest 라우트는 없앤다.
+- Vercel은 호스팅만 맡는다. Vercel Cron과 수집용 API 라우트는 없다.
+- KPX가 클라우드 IP를 차단하므로 수집은 가정용 회선에서 한다. `jobs/collect.ts`(`pnpm job:collect`)가 5분마다 KPX를 호출해 DB에 직접 기록하고 던전 모니터를 실행한다 (ADR 24).
+- `jobs/`는 Next와 무관하게 `tsx`로 실행된다. 여기서 import하는 `lib` 코드는 Next 전용 API(`next/headers`, `server-only` 등)에 의존하면 안 된다.
+- 현재 실행기는 개인 PC의 `scripts/run-collect-loop.ps1`이다. 홈서버가 준비되면 crontab으로 옮기고 수집 중단 알림을 붙인다 (미완).
+- 일일 미션은 자정 cron 없이 `/api/missions/today` 접속 시에만 발급된다.
 
 ## 로드맵
 
 | 단계 | 내용 | 상태 |
 |---|---|---|
-| 0 | 안전망: Vitest, CI, 지침 정리, RLS 마이그레이션 | 진행 중 |
-| 1 | 수집 이전: `jobs/` 신설, crontab, Vercel cron·ingest 제거, 데이터 지연 표시 | |
+| 0 | 안전망: Vitest, CI, 지침 정리, RLS 마이그레이션 | 완료 |
+| 1 | 수집 이전: `jobs/` 신설, Vercel cron·ingest 제거, 데이터 지연 표시 | 진행 중 (crontab 등록은 홈서버 준비 후) |
 | 2 | 구조 전반부: DB 접근을 `lib`으로 모으기(규칙 1), 세션 헬퍼(규칙 3) | |
 | 3 | DB 정합성: 유니크 제약, increment, 중복 컬럼·캐시 테이블 정리 | |
 | 4 | 구조 후반부: 규칙 2·4·5, 타입·파일 재배치, ADR 정리 | |

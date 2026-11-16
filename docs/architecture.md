@@ -7,7 +7,7 @@
 
 ---
 
-## 1. 외부 데이터 파이프 — 본인 PC에서 ingest
+## 1. 외부 데이터 파이프 — 본인 PC에서 ingest (ADR 24로 대체됨)
 
 **결정**: KPX D1·D2 외부 API를 본인 PC의 PowerShell 루프(5분 간격)에서 호출하고, 결과를 Vercel의 `/api/ingest/world-snapshot`으로 POST한다. Vercel Cron은 던전 모니터(D18)·일일 작업(D11·D15)에만 사용.
 
@@ -655,3 +655,30 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 - raw `$queryRaw` 컬럼명: world_snapshots 테이블은 `@@map`으로 snake_case지만 컬럼(`carbonIntensity`)은 매핑 없이 camelCase. raw에서 큰따옴표로 감싸야 함.
 - CLEAN_TO_KWH_RATIO(0.005)는 reward-calculator 평균 비율 추정값. NDR 카드 카피용 정밀도 부담 없음. 정식 환산이 필요하면 reward-calculator에서 상수 끌어와 통일.
 - 동네 비교는 길드원 Dino.totalCleanEnergy 평균 — D16 길드 점수(합계)와 별개 집계. 같은 데이터에 두 집계가 공존하지만 한 화면에서만 평균을 쓰므로 SSoT 부담 없음.
+
+---
+
+## 24. 수집 파이프라인 — 가정용 회선에서 DB 직접 기록 (ADR 1 대체)
+
+**결정**: KPX 수집을 독립 스크립트 `jobs/collect.ts`로 옮기고, 가정용 회선의 기기(홈서버 crontab, 준비 전까지는 개인 PC의 PowerShell 루프)에서 5분마다 실행한다. 스크립트는 KPX를 호출해 **DB에 직접** UPSERT하고 이어서 던전 모니터를 실행한다. Vercel의 `/api/ingest/world-snapshot`, `/api/cron/realtime`, `/api/cron/daily`, `vercel.json`의 cron, `CRON_SECRET`은 제거한다. Vercel은 호스팅만 맡는다.
+
+스냅샷의 신선도는 저장 플래그(`isFallback`)가 아니라 읽는 시점에 판정한다. 최신 스냅샷이 15분(수집 3회분)을 넘기면 `/api/world/state`의 `world.isStale`이 true가 되고 화면에 "데이터 지연"을 표시한다. 지연 상태에서는 던전을 자동 발령하지 않는다.
+
+**이유**:
+
+- ADR 1의 구조는 "PC → Vercel 엔드포인트 → DB"로 한 단계가 더 있었다. 수집기가 DB 접속 정보를 가지면 중간 엔드포인트와 공유 비밀이 필요 없다.
+- 던전 모니터는 `/api/cron/realtime`에서만 호출됐는데 이 라우트는 어디에도 스케줄되지 않았다. 실제 운영 경로(PC ingest)에서는 자동 발령과 sweep이 한 번도 실행되지 않았다. 수집 스크립트에 합쳐 실제로 동작하게 한다.
+- 자정 미션 cron은 `/api/missions/today`의 lazy 발급과 같은 일을 했다. 접속하지 않은 사용자에게 미션을 미리 만들어 둘 이유가 없어 제거한다.
+- `isFallback`은 한 번도 true로 기록된 적이 없었다. 수집기가 멈추면 플래그를 쓸 주체도 없으므로 읽는 쪽에서 판정해야 한다.
+
+**대안**:
+
+- 홈서버가 Vercel 엔드포인트를 호출하는 구조 유지 — 엔드포인트·비밀·함수 실행 시간 제한을 계속 관리해야 함.
+- DB까지 홈서버로 이전 — Vercel 서버리스가 가정집 Postgres에 붙어야 해 노출·지연·커넥션 문제가 생김.
+
+**후속**:
+
+- `world_snapshots.isFallback` 컬럼은 더 이상 쓰지도 읽지도 않는다. DB 정합성 단계에서 삭제.
+- 홈서버 준비 후 crontab 등록 + 수집 중단 알림(dead-man ping) 추가. 종료 코드(0/1)와 한 줄 JSON 로그가 그 연동 지점.
+- 수집 기기에는 `DATABASE_URL`과 `KPX_API_KEY`가, Vercel에는 `KPX_API_KEY`·`CRON_SECRET`이 필요 없다.
+- 일일 미션 중복 발급 방지는 여전히 앱 레벨 확인뿐이다. DB 정합성 단계에서 유니크 제약으로 보장.

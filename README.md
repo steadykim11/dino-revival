@@ -15,7 +15,7 @@ DR(전력수요반응)을 게이미피케이션으로 풀어낸 토이 프로젝
 - Tailwind CSS
 - Supabase Postgres + Prisma 6.x
 - Supabase Auth (이메일/비밀번호)
-- Vercel (호스팅 + Cron)
+- Vercel (호스팅)
 - pnpm
 
 ## 셋업
@@ -26,7 +26,7 @@ DR(전력수요반응)을 게이미피케이션으로 풀어낸 토이 프로젝
 - pnpm 9+
 - Supabase 프로젝트 (Postgres + Auth)
 - 공공데이터포털 API 키 (KPX D1, D2 활용신청 승인 필요)
-- Vercel 계정 (배포 + Cron)
+- Vercel 계정 (배포)
 
 ### 2. 클론 및 의존성 설치
 
@@ -65,15 +65,28 @@ http://localhost:3000 접속.
 
 ### 6. KPX 데이터 적재 (선택)
 
-KPX 외부 API가 Vercel·GitHub Actions 등 클라우드 IP를 거부하므로, **본인 PC**에서 5분 단위 PS 루프로 KPX를 호출하고 Vercel ingest 엔드포인트로 전송합니다.
+KPX 외부 API가 Vercel·GitHub Actions 등 클라우드 IP를 거부하므로, **가정용 회선의 기기**(홈서버 또는 본인 PC)에서 수집 작업을 5분마다 실행합니다. 작업은 KPX를 호출해 DB에 직접 기록하고, 던전 만료 정리와 자동 발령도 함께 처리합니다.
 
-```powershell
-.\scripts\run-ingest-loop.ps1
+```bash
+pnpm job:collect             # 1회 실행 (.env.local의 DATABASE_URL, KPX_API_KEY 사용)
+pnpm job:collect --dry-run   # KPX만 호출하고 DB에는 쓰지 않음
 ```
 
-상세 사양은 `docs/architecture.md`의 "외부 데이터 파이프" 항목 참조.
+5분마다 반복 실행하는 방법:
 
-개발 중 데이터를 누적할 필요가 없을 땐 안 돌려도 됩니다. 그 경우 `/api/world/state`는 503을 반환하고, 메인 화면은 "데이터 준비 중입니다" 스켈레톤을 표시합니다.
+```powershell
+# Windows — PowerShell 루프
+.\scripts\run-collect-loop.ps1
+```
+
+```cron
+# Linux — crontab (중복 실행 방지를 위해 flock 사용)
+*/5 * * * * cd /path/to/dino-revival && flock -n /tmp/dino-collect.lock pnpm job:collect >> collect.log 2>&1
+```
+
+상세 결정은 `docs/architecture.md`의 "수집 파이프라인" 항목 참조.
+
+수집이 15분 넘게 멈추면 메인 화면의 탄소 시계에 "데이터 지연"이 표시됩니다. 스냅샷이 하나도 없으면 `/api/world/state`는 503을 반환하고, 메인 화면은 "데이터 준비 중입니다" 스켈레톤을 표시합니다.
 
 ## 디렉토리 구조
 
@@ -114,7 +127,8 @@ lib/
 prisma/
   schema.prisma   # DB 스키마
   seeds/          # 시드 스크립트
-scripts/          # ingest 등 외부 스크립트
+jobs/             # 수집 작업 (Next와 무관하게 실행)
+scripts/          # 수동 실행 스크립트
 docs/             # 의사결정 기록·자료 출처
 public/
   images/         # 스프라이트 이미지
