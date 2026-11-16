@@ -10,8 +10,8 @@ import {
   activateDungeon,
   sweepExpiredDungeons,
   getCurrentActiveDungeon,
-} from "./lifecycle";
-import { issueDungeonMissions } from "./missions";
+} from "./lifecycle.server";
+import { issueDungeonMissions } from "./missions.server";
 
 /** 자동 발령 임계 예비율 (요약본) */
 const AUTO_TRIGGER_THRESHOLD = 10;
@@ -35,10 +35,10 @@ export async function monitorDungeon(
   now: Date = new Date(),
 ): Promise<MonitorResult> {
   // 1) 만료된 던전 정리
-  const swept = await sweepExpiredDungeons(prisma, now);
+  const swept = await sweepExpiredDungeons(now);
 
   // 2) 이미 활성이면 발령 스킵
-  const active = await getCurrentActiveDungeon(prisma, now);
+  const active = await getCurrentActiveDungeon(now);
   if (active) {
     return { swept, triggered: false, reason: "ALREADY_ACTIVE" };
   }
@@ -62,7 +62,7 @@ export async function monitorDungeon(
   }
 
   // 4) 자동 발령
-  const { dungeon, created } = await activateDungeon(prisma, {
+  const { dungeon, created } = await activateDungeon({
     reason: "auto",
     triggerReserveRate: reserveRate,
     triggerCarbonIntensity: Number(snapshot.carbonIntensity),
@@ -71,7 +71,7 @@ export async function monitorDungeon(
 
   let issued = 0;
   if (created) {
-    issued = await issueDungeonMissions(prisma, dungeon.id, now);
+    issued = await issueDungeonMissions(dungeon.id, now);
   }
 
   return {
@@ -82,4 +82,28 @@ export async function monitorDungeon(
     issuedMissions: issued,
     reserveRate,
   };
+}
+
+/**
+ * 관리자 수동 발령.
+ *
+ * - 발령 자체는 메트릭과 무관하다. 예비율·탄소강도는 감사용으로만 기록
+ *   (스냅샷이 없으면 null로 두고 발령은 계속).
+ * - 이미 활성 던전이 있으면 그것을 돌려주고 미션은 다시 발급하지 않는다 (idempotent).
+ */
+export async function triggerDungeonManually() {
+  const snapshot = await prisma.worldSnapshot.findFirst({
+    orderBy: { ts: "desc" },
+    select: { supplyReserveRate: true, carbonIntensity: true },
+  });
+
+  const { dungeon, created } = await activateDungeon({
+    reason: "manual",
+    triggerReserveRate: snapshot ? Number(snapshot.supplyReserveRate) : null,
+    triggerCarbonIntensity: snapshot ? Number(snapshot.carbonIntensity) : null,
+  });
+
+  const issuedMissions = created ? await issueDungeonMissions(dungeon.id) : 0;
+
+  return { dungeon, created, issuedMissions };
 }

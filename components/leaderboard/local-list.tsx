@@ -1,6 +1,6 @@
 // 우리 동네 탭 — 길드원 리스트. 본인 강조.
 
-import type { GuildMember } from "@/lib/guilds/score";
+import type { GuildMember } from "@/lib/guilds/score.server";
 
 interface LocalListProps {
   members: GuildMember[];

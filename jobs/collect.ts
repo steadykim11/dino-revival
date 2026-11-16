@@ -16,9 +16,9 @@
 // 결과는 한 줄 JSON으로 출력한다 (로그 파일에서 검색하기 쉽도록).
 
 import { fetchWorldSnapshot } from "@/lib/external/kpx";
-import { monitorDungeon } from "@/lib/dungeon/monitor";
+import { monitorDungeon } from "@/lib/dungeon/monitor.server";
 import { prisma } from "@/lib/prisma";
-import { captureWorldSnapshot } from "@/lib/world/snapshot-writer";
+import { captureWorldSnapshot } from "@/lib/world/snapshot-writer.server";
 
 function report(fields: Record<string, unknown>) {
   console.log(

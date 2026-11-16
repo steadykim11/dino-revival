@@ -5,9 +5,8 @@
 
 import { NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
-import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/types/api";
-import { getLeaderboard } from "@/lib/guilds/score";
+import { getLeaderboard } from "@/lib/guilds/score.server";
 
 export async function GET() {
   try {
@@ -19,7 +18,7 @@ export async function GET() {
     throw err;
   }
 
-  const rankings = await getLeaderboard(prisma);
+  const rankings = await getLeaderboard();
 
   return NextResponse.json({
     guilds: rankings,

@@ -1,5 +1,5 @@
 import { createServerSupabase } from "@/lib/auth/supabase-server";
-import { prisma } from "@/lib/prisma";
+import { userExists } from "@/lib/users/users.server";
 import { errorResponse } from "@/lib/types/api";
 import { NextRequest } from "next/server";
 import { z } from "zod";
@@ -51,13 +51,10 @@ export async function POST(request: NextRequest) {
 
   // User 테이블에 row 있는지 확인 -> 클라이언트가 라우팅 분기
   const userId = data.user.id;
-  const profile = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true },
-  });
+  const hasProfile = await userExists(userId);
 
   return Response.json({
     user: { id: userId, email: data.user.email },
-    needsOnboarding: !profile,
+    needsOnboarding: !hasProfile,
   });
 }

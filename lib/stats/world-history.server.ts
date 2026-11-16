@@ -3,7 +3,7 @@
 // - 다운샘플: 시간별 평균 × 7일 = 168행 (라인차트 적정)
 // - DB 측 집계: Prisma raw $queryRaw로 date_trunc + avg
 
-import type { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 export interface CarbonIntensityPoint {
   /** ISO 시각 (UTC, 시간 단위로 truncated) */
@@ -18,7 +18,6 @@ interface CarbonIntensityRow {
 }
 
 export async function getCarbonIntensityHistory(
-  prisma: PrismaClient,
   days = 7,
 ): Promise<CarbonIntensityPoint[]> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);

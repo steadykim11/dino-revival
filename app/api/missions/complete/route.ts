@@ -9,12 +9,11 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
-import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/types/api";
 import {
   completeMission,
   type CompleteFailReason,
-} from "@/lib/missions/completer";
+} from "@/lib/missions/completer.server";
 
 const PostSchema = z.object({
   missionId: z.string().uuid(),
@@ -66,7 +65,6 @@ export async function POST(request: NextRequest) {
   }
 
   const result = await completeMission(
-    prisma,
     ctx.user.id,
     parsed.data.missionId,
   );

@@ -9,15 +9,16 @@
 //     이 시점에 hatchedAt 기록.
 //   - HATCHLING → ADULT 진화는 500 도달 시. evolvedAt 기록.
 //
-// 게임 진행에 따른 갱신(친밀도·클린에너지·진화)은 lib/dino/의 내부 함수가
-// 트랜잭션 안에서 prisma를 직접 호출. 이 엔드포인트 통하지 않음.
+// 게임 진행에 따른 갱신(친밀도·클린에너지·진화)은 미션 완료 트랜잭션(lib/missions)이
+// 처리한다. 이 엔드포인트를 통하지 않음.
 // 관리자 패널의 강제 조정은 별도 /api/admin/dino (D19).
 
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { DinoSpecies } from "@prisma/client";
 import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
-import { prisma } from "@/lib/prisma";
+import { createDino, getDino } from "@/lib/dino/dino.server";
+import { userExists } from "@/lib/users/users.server";
 import { errorResponse } from "@/lib/types/api";
 import { SPECIES_META } from "@/lib/dino/species";
 
@@ -42,9 +43,7 @@ export async function GET() {
     throw err;
   }
 
-  const dino = await prisma.dino.findUnique({
-    where: { userId: ctx.user.id },
-  });
+  const dino = await getDino(ctx.user.id);
 
   return Response.json({ dino });
 }
@@ -61,11 +60,7 @@ export async function PUT(request: NextRequest) {
   }
 
   // User row가 있어야 Dino 생성 가능 (FK)
-  const profile = await prisma.user.findUnique({
-    where: { id: ctx.user.id },
-    select: { id: true },
-  });
-  if (!profile) {
+  if (!(await userExists(ctx.user.id))) {
     return errorResponse(
       "PROFILE_REQUIRED",
       "먼저 프로필 등록을 완료해주세요.",
@@ -100,26 +95,14 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  // 중복 부화 방지 — 한 사용자 1마리
-  const existing = await prisma.dino.findUnique({
-    where: { userId: ctx.user.id },
-    select: { id: true },
+  // 알 받기 = EGG 상태로 생성. 한 사용자 1마리 — 이미 있으면 null.
+  const created = await createDino(ctx.user.id, {
+    species: parsed.data.species,
+    name: parsed.data.name.trim(),
   });
-  if (existing) {
+  if (!created) {
     return errorResponse("DINO_ALREADY_EXISTS", "이미 공룡이 있습니다.", 409);
   }
-
-  // 알 받기 = EGG 상태로 생성. hatchedAt은 첫 진화 시점에 기록.
-  const created = await prisma.dino.create({
-    data: {
-      userId: ctx.user.id,
-      species: parsed.data.species,
-      name: parsed.data.name.trim(),
-      stage: "EGG",
-      totalCleanEnergy: 0,
-      intimacy: 0,
-    },
-  });
 
   return Response.json(
     {

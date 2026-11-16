@@ -7,9 +7,9 @@
 
 import { NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
-import { prisma } from "@/lib/prisma";
+import { getUserGuildInfo } from "@/lib/users/users.server";
 import { errorResponse } from "@/lib/types/api";
-import { getGuildDetail } from "@/lib/guilds/score";
+import { getGuildDetail } from "@/lib/guilds/score.server";
 
 export async function GET() {
   let ctx;
@@ -23,10 +23,7 @@ export async function GET() {
   }
 
   // 본인 User row 조회 (guildId 확인)
-  const me = await prisma.user.findUnique({
-    where: { id: ctx.user.id },
-    select: { id: true, nickname: true, guildId: true },
-  });
+  const me = await getUserGuildInfo(ctx.user.id);
 
   if (!me) {
     return errorResponse("PROFILE_REQUIRED", "프로필 등록이 필요합니다.", 404);
@@ -40,7 +37,7 @@ export async function GET() {
     );
   }
 
-  const detail = await getGuildDetail(prisma, me.guildId);
+  const detail = await getGuildDetail(me.guildId);
   if (!detail) {
     return errorResponse("GUILD_NOT_FOUND", "길드를 찾을 수 없습니다.", 404);
   }

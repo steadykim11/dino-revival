@@ -5,7 +5,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
-import { prisma } from "@/lib/prisma";
+import { checkNicknameConflict } from "@/lib/users/users.server";
 import { errorResponse } from "@/lib/types/api";
 
 // 닉네임 규칙: 2~12자, 한글·영문·숫자
@@ -48,29 +48,9 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 자기 자신의 현재 닉네임은 "사용 중"이지만 변경 시 허용
-  const me = await prisma.user.findUnique({
-    where: { id: ctx.user.id },
-    select: { nickname: true },
-  });
-
-  if (me?.nickname === nickname) {
-    return Response.json({
-      available: false,
-      reason: "SAME_AS_CURRENT",
-    });
-  }
-
-  const existing = await prisma.user.findUnique({
-    where: { nickname },
-    select: { id: true },
-  });
-
-  if (existing) {
-    return Response.json({
-      available: false,
-      reason: "TAKEN",
-    });
+  const conflict = await checkNicknameConflict(ctx.user.id, nickname);
+  if (conflict) {
+    return Response.json({ available: false, reason: conflict });
   }
 
   return Response.json({ available: true });

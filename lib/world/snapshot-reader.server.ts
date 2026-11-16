@@ -130,3 +130,41 @@ export async function readWorldState(): Promise<WorldStateResponse | null> {
     todayForecast,
   };
 }
+
+/** 최신 스냅샷의 핵심 수치. 스냅샷이 없으면 null. */
+export async function getLatestSnapshot(): Promise<{
+  ts: Date;
+  carbonIntensity: number;
+  supplyReserveRate: number;
+} | null> {
+  const snapshot = await prisma.worldSnapshot.findFirst({
+    orderBy: { ts: "desc" },
+    select: { ts: true, carbonIntensity: true, supplyReserveRate: true },
+  });
+  if (!snapshot) return null;
+  return {
+    ts: snapshot.ts,
+    carbonIntensity: toNum(snapshot.carbonIntensity),
+    supplyReserveRate: toNum(snapshot.supplyReserveRate),
+  };
+}
+
+/** 최근 스냅샷 n개 (최신순). 관리자 모니터용. */
+export async function getRecentSnapshots(take: number) {
+  const rows = await prisma.worldSnapshot.findMany({
+    orderBy: { ts: "desc" },
+    take,
+    select: {
+      ts: true,
+      carbonIntensity: true,
+      supplyReserveRate: true,
+      currentLoad: true,
+    },
+  });
+  return rows.map((s) => ({
+    ts: s.ts,
+    carbonIntensity: toNum(s.carbonIntensity),
+    supplyReserveRate: toNum(s.supplyReserveRate),
+    currentLoad: s.currentLoad,
+  }));
+}

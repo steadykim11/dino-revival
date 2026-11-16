@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { pingDb } from '@/lib/health.server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
     // DB 연결 확인
-    await prisma.$queryRaw`SELECT 1`;
+    await pingDb();
 
     return NextResponse.json({
       status: 'ok',

@@ -6,19 +6,17 @@
 // - 더미 가상 기여를 두는 이유: 시연 시 던전 발령 직후라 더미 활동이 0이면
 //   "동네 기여도" 위젯이 본인 혼자가 됨 -> 시연 임팩트 감소
 
-import type { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import type { GuildContribution } from "@/lib/types/dungeon";
 
 /**
  * 던전 기간 내 본인 + 같은 길드 더미의 기여도 집계.
  *
- * @param prisma   PrismaClient
  * @param userId   본인 User.id
  * @param dungeonId 활성 던전 ID (활성 여부는 호출자가 보장)
  * @returns GuildContribution | null (사용자가 길드에 속해있지 않으면 null)
  */
 export async function getGuildContribution(
-  prisma: PrismaClient,
   userId: string,
   dungeonId: string,
 ): Promise<GuildContribution | null> {

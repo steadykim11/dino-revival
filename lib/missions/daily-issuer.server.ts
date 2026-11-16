@@ -3,7 +3,7 @@
 // - 직전일(어제) Mission을 조회해 풀 회피 기준으로 사용
 // - selectDailyMissions로 풀 선정 후 Mission 레코드 3개 createMany
 
-import type { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { selectDailyMissions } from "./daily-selector";
 import { toKstDateString, kstNextMidnight } from "@/lib/time/kst";
 
@@ -16,7 +16,6 @@ export interface IssueResult {
 }
 
 export async function issueDailyMissions(
-  prisma: PrismaClient,
   userId: string,
   now: Date = new Date(),
 ): Promise<IssueResult> {

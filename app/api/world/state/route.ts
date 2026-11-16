@@ -1,6 +1,6 @@
 // app/api/world/state/route.ts
 import { NextResponse } from "next/server";
-import { readWorldState } from "@/lib/world/snapshot-reader";
+import { readWorldState } from "@/lib/world/snapshot-reader.server";
 
 export const dynamic = "force-dynamic";
 

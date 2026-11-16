@@ -2,7 +2,7 @@
 // - 완료 미션 수는 MissionLog 카운트 (영구 이력)
 // - 페이지가 Server Component에서 직접 호출 (D17 패턴)
 
-import type { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 export interface MeStats {
   totalCleanEnergy: number;
@@ -11,7 +11,6 @@ export interface MeStats {
 }
 
 export async function getMeStats(
-  prisma: PrismaClient,
   userId: string,
 ): Promise<MeStats> {
   const [dino, completedCount] = await Promise.all([

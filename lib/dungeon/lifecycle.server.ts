@@ -5,7 +5,8 @@
 // - 자동 cron 미사용 (결정 3-B). 만료는 lazy + activate 시 sweep으로 충분.
 // - 발령 시 활성 사용자에게 던전 미션 일괄 발급 (issueDungeonMissions 호출).
 
-import type { Dungeon, Prisma, PrismaClient } from "@prisma/client";
+import type { Dungeon, Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import type { DungeonTriggerReason } from "@/lib/types/dungeon";
 
 /** 던전 활성 시간 (분) */
@@ -17,8 +18,8 @@ export const DUNGEON_DURATION_MIN = 60;
  * - 둘 이상이면(이론상 발생 X) 최근 activatedAt 우선.
  */
 export async function getCurrentActiveDungeon(
-  client: PrismaClient | Prisma.TransactionClient,
   now: Date = new Date(),
+  client: typeof prisma | Prisma.TransactionClient = prisma,
 ): Promise<Dungeon | null> {
   return client.dungeon.findFirst({
     where: { isActive: true, expiresAt: { gt: now } },
@@ -32,8 +33,8 @@ export async function getCurrentActiveDungeon(
  * activate / end / monitor cron 호출 시점에 한 번씩 청소되도록 호출.
  */
 export async function sweepExpiredDungeons(
-  client: PrismaClient | Prisma.TransactionClient,
   now: Date = new Date(),
+  client: typeof prisma | Prisma.TransactionClient = prisma,
 ): Promise<number> {
   const result = await client.dungeon.updateMany({
     where: { isActive: true, expiresAt: { lte: now } },
@@ -57,7 +58,6 @@ export interface ActivateResult {
 }
 
 export async function activateDungeon(
-  prisma: PrismaClient,
   params: {
     reason: DungeonTriggerReason;
     triggerReserveRate?: number | null;
@@ -70,9 +70,9 @@ export async function activateDungeon(
   // 트랜잭션 — sweep + 활성 확인 + 생성을 원자적으로.
   // 동시 호출(관리자 더블 클릭 등) 시 한쪽만 created=true.
   return prisma.$transaction(async (tx) => {
-    await sweepExpiredDungeons(tx, now);
+    await sweepExpiredDungeons(now, tx);
 
-    const existing = await getCurrentActiveDungeon(tx, now);
+    const existing = await getCurrentActiveDungeon(now, tx);
     if (existing) {
       return { dungeon: existing, created: false };
     }
@@ -104,7 +104,6 @@ export async function activateDungeon(
  *   사용자가 던전 종료 후에도 발급된 미션을 마저 완료할 수 있음 — 시연 안전망.
  */
 export async function endDungeon(
-  prisma: PrismaClient,
   dungeonId: string,
   now: Date = new Date(),
 ): Promise<Dungeon | null> {
@@ -117,4 +116,17 @@ export async function endDungeon(
   if (updated.count === 0) return null;
 
   return prisma.dungeon.findUnique({ where: { id: dungeonId } });
+}
+
+/**
+ * 현재 활성 던전을 종료 (관리자 수동 종료).
+ * 활성 던전이 없으면 null — 더블 클릭에도 안전.
+ */
+export async function endActiveDungeon(
+  now: Date = new Date(),
+): Promise<{ id: string; endedAt: Date | null } | null> {
+  const active = await getCurrentActiveDungeon(now);
+  if (!active) return null;
+  const ended = await endDungeon(active.id, now);
+  return { id: active.id, endedAt: ended?.endedAt ?? null };
 }

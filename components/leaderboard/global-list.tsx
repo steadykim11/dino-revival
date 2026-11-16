@@ -1,6 +1,6 @@
 // 전국 탭 — 길드 순위. 본인 길드 강조.
 
-import type { GuildRanking } from "@/lib/guilds/score";
+import type { GuildRanking } from "@/lib/guilds/score.server";
 
 interface GlobalListProps {
   rankings: GuildRanking[];

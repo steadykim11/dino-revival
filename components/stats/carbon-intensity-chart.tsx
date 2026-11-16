@@ -14,7 +14,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import type { CarbonIntensityPoint } from "@/lib/stats/world-history";
+import type { CarbonIntensityPoint } from "@/lib/stats/world-history.server";
 
 interface Props {
   data: CarbonIntensityPoint[];

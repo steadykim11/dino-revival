@@ -1,7 +1,7 @@
 // 상단 누적 카드 3개 — 클린에너지·CO2·완료 미션 수
 // 와이어프레임 SC-10 상단 영역. 3열 그리드.
 
-import type { MeStats } from "@/lib/stats/me-stats";
+import type { MeStats } from "@/lib/stats/me-stats.server";
 
 interface Props {
   stats: MeStats;

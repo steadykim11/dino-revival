@@ -5,7 +5,7 @@
 //   - 둘 다 있음 → / (메인)
 
 import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
-import { prisma } from "@/lib/prisma";
+import { getUserWithDinoAndGuild } from "@/lib/users/users.server";
 import { errorResponse } from "@/lib/types/api";
 
 export async function GET() {
@@ -19,19 +19,7 @@ export async function GET() {
     throw err;
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: ctx.user.id },
-    include: {
-      dino: true,
-      guild: {
-        select: {
-          id: true,
-          regionCode: true,
-          displayName: true,
-        },
-      },
-    },
-  });
+  const user = await getUserWithDinoAndGuild(ctx.user.id);
 
   return Response.json({
     auth: {

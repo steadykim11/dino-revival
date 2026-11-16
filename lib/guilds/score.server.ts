@@ -5,7 +5,7 @@
 // - 리더보드 조회 시 즉시 계산 + 5분 캐시 (옵션 C, 요약본)
 // - 캐시는 LeaderboardCache 단일 행 (id='global'). Phase 2에 Redis로 이전.
 
-import type { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const CACHE_KEY = "global";
@@ -24,7 +24,6 @@ export interface GuildRanking {
  * 5분 이내 캐시가 있으면 그대로, 없거나 stale이면 재계산 후 저장.
  */
 export async function getLeaderboard(
-  prisma: PrismaClient,
   now: Date = new Date(),
 ): Promise<GuildRanking[]> {
   // 1) 캐시 확인
@@ -38,7 +37,7 @@ export async function getLeaderboard(
   }
 
   // 2) 재계산
-  const rankings = await computeLeaderboard(prisma);
+  const rankings = await computeLeaderboard();
 
   // 3) 캐시 저장 (upsert — 첫 호출 시 row 없을 수 있음)
   await prisma.leaderboardCache.upsert({
@@ -71,7 +70,6 @@ export async function getLeaderboard(
  * 내부용 — getLeaderboard에서만 호출.
  */
 async function computeLeaderboard(
-  prisma: PrismaClient,
 ): Promise<GuildRanking[]> {
   // 모든 길드 조회 + 길드별 멤버의 Dino.totalCleanEnergy 합산
   // 길드 15개라 단순 loop가 충분. Raw SQL 사용 안 함 (Prisma 일관성).
@@ -133,12 +131,11 @@ export interface GuildMember {
 }
 
 export async function getGuildDetail(
-  prisma: PrismaClient,
   guildId: string,
   now: Date = new Date(),
 ): Promise<GuildDetail | null> {
   // 전국 순위에서 이 길드 찾기 (rank·seasonScore 같이 가져옴)
-  const leaderboard = await getLeaderboard(prisma, now);
+  const leaderboard = await getLeaderboard(now);
   const ranked = leaderboard.find((r) => r.guildId === guildId);
   if (!ranked) return null;
 
@@ -175,4 +172,15 @@ export async function getGuildDetail(
     },
     members: memberList,
   };
+}
+
+/** 길드원 Dino.totalCleanEnergy 평균 (통계 화면의 동네 비교용) */
+export async function getGuildAverageCleanEnergy(
+  guildId: string,
+): Promise<number> {
+  const agg = await prisma.dino.aggregate({
+    where: { user: { guildId } },
+    _avg: { totalCleanEnergy: true },
+  });
+  return agg._avg.totalCleanEnergy ?? 0;
 }

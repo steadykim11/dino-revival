@@ -12,14 +12,16 @@
 // - 보상 내역 (모달·전투 결과 표시용)
 // - 진화 여부 (D13 전투 컷씬 → D14 진화 연출로 연결)
 
-import type { DinoStage, PrismaClient } from "@prisma/client";
+import type { DinoStage } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import {
   calculateReward,
   applyIntimacy,
   calculateCo2Reduced,
   type RewardBreakdown,
 } from "./reward-calculator";
-import { applyEvolution, shouldEvolve } from "@/lib/dino/evolution";
+import { applyEvolution } from "@/lib/dino/dino.server";
+import { shouldEvolve } from "@/lib/dino/evolution";
 
 export type CompleteFailReason =
   | "MISSION_NOT_FOUND"
@@ -45,7 +47,6 @@ export type CompleteResult =
   | { ok: false; reason: CompleteFailReason };
 
 export async function completeMission(
-  prisma: PrismaClient,
   userId: string,
   missionId: string,
   now: Date = new Date(),

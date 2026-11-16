@@ -1,33 +1,16 @@
 // 메인 화면이 호출하는 오늘 미션 조회
-// - 오늘자 DAILY 미션이 3개 미만이면 여기서 발급 (자정 cron 없음 — 접속 시 발급이 유일한 경로)
+// - 오늘자 DAILY 미션이 3개 미만이면 조회 중에 발급된다 (getTodayMissions 참조)
 // - DUNGEON 미션이 있으면 함께 반환 (D18에서 활용)
 
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/require-user";
-import { prisma } from "@/lib/prisma";
-import { issueDailyMissions } from "@/lib/missions/daily-issuer";
-import { toKstDateString } from "@/lib/time/kst";
+import { getTodayMissions } from "@/lib/missions/missions.server";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withAuth(async ({ user }) => {
   const now = new Date();
-  const todayKst = toKstDateString(now);
-  const assignedDate = new Date(`${todayKst}T00:00:00.000Z`);
-
-  // 1) 오늘자 미션 조회
-  let missions = await fetchMissions(user.id, assignedDate);
-
-  // 2) DAILY가 3개 미만이면 lazy 발급
-  const dailyCount = missions.filter((m) => m.type === "DAILY").length;
-  if (dailyCount < 3) {
-    const result = await issueDailyMissions(prisma, user.id, now);
-    if (result.status === "failed") {
-      console.error("[missions/today] lazy issue failed:", result.error);
-    } else {
-      missions = await fetchMissions(user.id, assignedDate);
-    }
-  }
+  const missions = await getTodayMissions(user.id, now);
 
   return NextResponse.json({
     missions: missions.map((m) => ({
@@ -47,28 +30,3 @@ export const GET = withAuth(async ({ user }) => {
     generatedAt: now.toISOString(),
   });
 });
-
-async function fetchMissions(userId: string, assignedDate: Date) {
-  return prisma.mission.findMany({
-    where: {
-      userId,
-      OR: [
-        { assignedDate, type: "DAILY" },
-        { type: "DUNGEON", expiresAt: { gt: new Date() } },
-      ],
-    },
-    include: {
-      pool: {
-        select: {
-          title: true,
-          description: true,
-          category: true,
-          timeSlot: true,
-          baseReward: true,
-          estimatedKwh: true,
-        },
-      },
-    },
-    orderBy: [{ type: "desc" }, { createdAt: "asc" }],
-  });
-}

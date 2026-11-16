@@ -9,7 +9,8 @@
 //
 // daily-issuer.ts와 assignedDate / expiresAt 계산 방식을 통일.
 
-import { Prisma, type PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { toKstDateString, kstNextMidnight } from "@/lib/time/kst";
 
 /** SC-09 와이어프레임의 "던전 미션 2개" */
@@ -55,7 +56,6 @@ function pickDungeonPoolIds(
  * @returns 발급된 미션 row 수
  */
 export async function issueDungeonMissions(
-  prisma: PrismaClient,
   dungeonId: string,
   now: Date = new Date(),
 ): Promise<number> {
