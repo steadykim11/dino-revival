@@ -7,6 +7,7 @@ import type {
   Battlefield,
 } from "@/lib/types/world-snapshot";
 import { classifyBattlefield } from "./battlefield";
+import { isSnapshotStale } from "./staleness";
 import { getTodayForecast } from "./peak-forecast";
 import type { DungeonState } from "@/lib/types/dungeon";
 
@@ -123,7 +124,7 @@ export async function readWorldState(): Promise<WorldStateResponse | null> {
       fuelMix,
       fuelMixPercent,
       battlefield,
-      isFallback: snapshot.isFallback,
+      isStale: isSnapshotStale(snapshot.ts, now),
     },
     dungeon: buildDungeonState(dungeon, now),
     todayForecast,

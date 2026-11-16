@@ -11,6 +11,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { isAdminUserId } from "@/lib/auth/admin";
 import { prisma } from "@/lib/prisma";
 import { getCurrentActiveDungeon } from "@/lib/dungeon/lifecycle";
+import { isSnapshotStale } from "@/lib/world/staleness";
 import { PageHeader } from "@/components/layout/page-header";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { SideNav } from "@/components/layout/side-nav";
@@ -50,7 +51,6 @@ export default async function AdminPage() {
         carbonIntensity: true,
         supplyReserveRate: true,
         currentLoad: true,
-        isFallback: true,
       },
     }),
   ]);
@@ -104,12 +104,14 @@ export default async function AdminPage() {
 
           <Section title="데이터 모니터" description="최신 world_snapshot 5개">
             <SnapshotsMonitor
+              isStale={
+                snapshots.length > 0 && isSnapshotStale(snapshots[0].ts)
+              }
               snapshots={snapshots.map((s) => ({
                 ts: s.ts.toISOString(),
                 carbonIntensity: Number(s.carbonIntensity),
                 supplyReserveRate: Number(s.supplyReserveRate),
                 currentLoad: s.currentLoad,
-                isFallback: s.isFallback,
               }))}
             />
           </Section>

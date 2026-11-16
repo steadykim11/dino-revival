@@ -8,20 +8,26 @@ interface Snapshot {
   carbonIntensity: number;
   supplyReserveRate: number;
   currentLoad: number;
-  isFallback: boolean;
 }
 
 interface Props {
   snapshots: Snapshot[];
+  /** 최신 스냅샷이 15분 넘게 오래됨 */
+  isStale: boolean;
 }
 
-export function SnapshotsMonitor({ snapshots }: Props) {
+export function SnapshotsMonitor({ snapshots, isStale }: Props) {
   if (snapshots.length === 0) {
     return <p className="text-xs text-stone-500">snapshot이 아직 없습니다.</p>;
   }
 
   return (
     <div className="overflow-x-auto">
+      {isStale && (
+        <p className="mb-2 text-[11px] font-medium text-amber-600">
+          수집 지연 — 최신 스냅샷이 15분 넘게 갱신되지 않았습니다.
+        </p>
+      )}
       <table className="w-full text-[11px]">
         <thead className="bg-stone-50 text-stone-500">
           <tr>
@@ -33,18 +39,12 @@ export function SnapshotsMonitor({ snapshots }: Props) {
         </thead>
         <tbody>
           {snapshots.map((s) => (
-            <tr
-              key={s.ts}
-              className={`border-t border-stone-100 ${
-                s.isFallback ? "text-amber-600" : ""
-              }`}
-            >
+            <tr key={s.ts} className="border-t border-stone-100">
               <td className="px-2 py-1.5">
                 {new Date(s.ts).toLocaleTimeString("ko-KR", {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
-                {s.isFallback && <span className="ml-1 text-[9px]">(fb)</span>}
               </td>
               <td className="px-2 py-1.5 text-right tabular-nums">
                 {s.carbonIntensity.toFixed(0)}

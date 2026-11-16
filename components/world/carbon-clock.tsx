@@ -42,7 +42,12 @@ export function CarbonClock() {
         <h2 className="text-xs font-medium text-stone-700">
           탄소 시계 — {battlefieldLabel(world.battlefield)}
         </h2>
-        <span className="text-[11px] text-stone-500">{relativeTimeKo(ts)}</span>
+        <span
+          className={`text-[11px] ${world.isStale ? "font-medium text-amber-600" : "text-stone-500"}`}
+        >
+          {world.isStale && "데이터 지연 · "}
+          {relativeTimeKo(ts)}
+        </span>
       </div>
 
       <div className="mb-3 flex items-baseline justify-between">

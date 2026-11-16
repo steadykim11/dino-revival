@@ -45,7 +45,8 @@ export interface WorldStateResponse {
     fuelMix: FuelMix; // 12종, MW (양수충전 시 pumped 음수 가능)
     fuelMixPercent: FuelMix; // 12종, 0~1. 분모는 mw>0 항목 합
     battlefield: Battlefield;
-    isFallback: boolean;
+    /** 최신 스냅샷이 15분 넘게 오래됨 — 수집 지연 (lib/world/staleness.ts) */
+    isStale: boolean;
   };
   dungeon: DungeonState;
   todayForecast: TodayForecastResponse | null;
