@@ -1,5 +1,5 @@
 // 메인 화면이 호출하는 오늘 미션 조회
-// - 오늘자 DAILY 미션이 3개 미만이면 자동 발급 (Cron 누락 보호)
+// - 오늘자 DAILY 미션이 3개 미만이면 여기서 발급 (자정 cron 없음 — 접속 시 발급이 유일한 경로)
 // - DUNGEON 미션이 있으면 함께 반환 (D18에서 활용)
 
 import { NextResponse } from "next/server";
