@@ -440,7 +440,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 - D12에서 미션 완료 흐름(전투 결과 + 보상 계산) 연결.
 - D15에서 더미 사용자 50~100명 추가 시 Cron 시간 측정 — `maxDuration=60` 한도 안에 드는지 확인. 초과 시 청크 분할.
-- 알고리즘 검증은 `scripts/test-daily-selector.ts`로 1000회 시뮬레이션. 카테고리 중복·relaxation 발생률 모니터.
+- 알고리즘 검증은 `lib/missions/daily-selector.test.ts`(Vitest)로 1000회 시뮬레이션. 카테고리 중복·relaxation이 없어야 통과.
 - 미션 풀 deleteMany는 D11 이후 금지(Mission이 poolId FK 참조). 풀 수정 필요 시 개별 update 또는 마이그레이션.
 
 ---

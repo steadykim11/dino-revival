@@ -16,7 +16,8 @@ type SeedMission = {
   estimatedKwh: string; // Decimal -> 문자열로 전달
 };
 
-const MISSIONS: readonly SeedMission[] = [
+// 테스트(lib/missions/daily-selector.test.ts)가 실제 풀 구성을 검증하도록 export
+export const MISSIONS: readonly SeedMission[] = [
   // COOLING (냉방)
   {
     title: "에어컨 1℃ 올리기",

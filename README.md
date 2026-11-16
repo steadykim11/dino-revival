@@ -127,8 +127,10 @@ public/
 ```bash
 pnpm dev                    # 개발 서버
 pnpm build                  # 프로덕션 빌드
+pnpm check                  # 타입 체크 + ESLint + 테스트 (커밋 전 실행)
+pnpm typecheck              # 타입 체크만
 pnpm lint                   # ESLint
-pnpm tsc --noEmit           # 타입 체크만
+pnpm test                   # Vitest (DB·외부 API 불필요)
 
 pnpm prisma migrate dev     # DB 스키마 변경 시
 pnpm prisma db seed         # 시드 (멱등)
