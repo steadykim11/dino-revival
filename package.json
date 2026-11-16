@@ -18,7 +18,8 @@
     "db:studio": "dotenv -e .env.local -- prisma studio",
     "db:reset": "dotenv -e .env.local -- prisma migrate reset",
     "db:seed": "dotenv -e .env.local -- tsx prisma/seed.ts",
-    "test:kpx": "dotenv -e .env.local -- tsx scripts/test-kpx.ts"
+    "test:kpx": "dotenv -e .env.local -- tsx scripts/test-kpx.ts",
+    "job:collect": "dotenv -e .env.local -- tsx jobs/collect.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

@@ -1,13 +1,11 @@
-// 5분 단위 realtime cron이 호출하는 던전 모니터링.
+// 수집 작업(jobs/collect.ts)이 5분마다 스냅샷 기록 직후 호출하는 던전 모니터링.
 //
 // - 만료된 활성 던전 청소 (sweep) — DB row 정리 목적
 // - 활성 던전 없고 예비율 < 10%면 자동 발령 + 미션 발급
-// - vercel.json schedule 별도 등록은 안 함. 기존 cron/realtime이
-//   이미 5분마다 돌고 있어 여기에 얹는 비용이 거의 0이라 통합.
-// - 실패 시 throw 대신 결과 객체 반환 — cron 메인 흐름(snapshot capture)을
-//   막지 않기 위함. 호출자(route)가 .catch로 한 번 더 가드.
+// - 최신 스냅샷이 지연 상태면 발령하지 않는다
 
 import { prisma } from "@/lib/prisma";
+import { isSnapshotStale } from "@/lib/world/staleness";
 import {
   activateDungeon,
   sweepExpiredDungeons,
@@ -25,6 +23,7 @@ export type MonitorResult = {
     | "TRIGGERED"
     | "ALREADY_ACTIVE"
     | "NO_SNAPSHOT"
+    | "STALE_SNAPSHOT"
     | "ABOVE_THRESHOLD"
     | "ERROR";
   dungeonId?: string;
@@ -47,10 +46,14 @@ export async function monitorDungeon(
   // 3) 최신 snapshot 확인
   const snapshot = await prisma.worldSnapshot.findFirst({
     orderBy: { ts: "desc" },
-    select: { supplyReserveRate: true, carbonIntensity: true },
+    select: { ts: true, supplyReserveRate: true, carbonIntensity: true },
   });
   if (!snapshot) {
     return { swept, triggered: false, reason: "NO_SNAPSHOT" };
+  }
+  // 수집이 멈춘 상태의 오래된 예비율로는 발령하지 않는다
+  if (isSnapshotStale(snapshot.ts, now)) {
+    return { swept, triggered: false, reason: "STALE_SNAPSHOT" };
   }
 
   const reserveRate = Number(snapshot.supplyReserveRate);

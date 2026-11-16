@@ -6,16 +6,16 @@ import type { WorldSnapshotData } from "@/lib/types/world-snapshot";
 
 export type WriteResult =
   | { kind: "success"; ts: Date; carbonIntensity: number }
-  | { kind: "fallback"; reason: string; lastTs: Date | null }
-  | { kind: "failed"; reason: string };
+  | { kind: "fallback"; reason: string; lastTs: Date | null };
 
 /**
- * KPX에서 데이터 가져와 WorldSnapshot에 UPSERT.
+ * KPX에서 데이터를 가져와 WorldSnapshot에 UPSERT. 수집 작업(jobs/collect.ts)이 호출.
  *
- * 외부 API 실패 시 fallback 정책:
- *   직전 스냅샷이 있으면 새로 INSERT 하지 않음 (직전값이 그대로 유효)
- *   "isFallback 플래그를 유지"한다는 의미는 직전 스냅샷의 값이 계속 노출된다는 뜻
- *   별도의 fallback 레코드를 만들지 않음 -> DB 깔끔하게 유지
+ * 외부 API 실패 시에는 아무것도 기록하지 않는다 (kind: "fallback").
+ * 직전 스냅샷이 그대로 최신값으로 남고, 오래되면 읽는 쪽에서
+ * 지연으로 판정한다 (lib/world/staleness.ts).
+ *
+ * DB 오류는 throw.
  */
 export async function captureWorldSnapshot(): Promise<WriteResult> {
   let data: WorldSnapshotData;
@@ -35,34 +35,24 @@ export async function captureWorldSnapshot(): Promise<WriteResult> {
       select: { ts: true },
     });
 
-    console.warn(`[snapshot] external fetch failed (${reason}). Falling back.`);
     return { kind: "fallback", reason, lastTs: last?.ts ?? null };
   }
 
-  // UPSERT — 같은 ts로 재호출되면 갱신 (idempotent).
+  const values = {
+    carbonIntensity: new Prisma.Decimal(data.carbonIntensity),
+    supplyReserveRate: new Prisma.Decimal(data.supplyReserveRate),
+    supplyCapacity: data.supplyCapacity,
+    currentLoad: data.currentLoad,
+    temperature:
+      data.temperature !== null ? new Prisma.Decimal(data.temperature) : null,
+    fuelMix: data.fuelMix as unknown as Prisma.InputJsonValue,
+  };
+
+  // 같은 ts로 재호출되면 갱신 (idempotent)
   await prisma.worldSnapshot.upsert({
     where: { ts: data.ts },
-    create: {
-      ts: data.ts,
-      carbonIntensity: new Prisma.Decimal(data.carbonIntensity),
-      supplyReserveRate: new Prisma.Decimal(data.supplyReserveRate),
-      supplyCapacity: data.supplyCapacity,
-      currentLoad: data.currentLoad,
-      temperature:
-        data.temperature !== null ? new Prisma.Decimal(data.temperature) : null,
-      fuelMix: data.fuelMix as unknown as Prisma.InputJsonValue,
-      isFallback: false,
-    },
-    update: {
-      carbonIntensity: new Prisma.Decimal(data.carbonIntensity),
-      supplyReserveRate: new Prisma.Decimal(data.supplyReserveRate),
-      supplyCapacity: data.supplyCapacity,
-      currentLoad: data.currentLoad,
-      temperature:
-        data.temperature !== null ? new Prisma.Decimal(data.temperature) : null,
-      fuelMix: data.fuelMix as unknown as Prisma.InputJsonValue,
-      isFallback: false,
-    },
+    create: { ts: data.ts, ...values },
+    update: values,
   });
 
   return {
