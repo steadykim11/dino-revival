@@ -5,11 +5,11 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { createServerSupabase } from "@/lib/auth/supabase-server";
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
-import { getCurrentActiveDungeon } from "@/lib/dungeon/lifecycle";
-import { getGuildContribution } from "@/lib/dungeon/contribution";
+import { requireSession } from "@/lib/auth/session.server";
+import { getDungeonMissions } from "@/lib/missions/missions.server";
+import { getLatestSnapshot } from "@/lib/world/snapshot-reader.server";
+import { getCurrentActiveDungeon } from "@/lib/dungeon/lifecycle.server";
+import { getGuildContribution } from "@/lib/dungeon/contribution.server";
 import { getBattlefield } from "@/lib/missions/reward-calculator";
 import { ENEMY_META } from "@/lib/battle/enemy-types";
 import { DungeonEnemyBanner } from "@/components/dungeon/enemy-banner";
@@ -19,14 +19,10 @@ import type { MissionItem } from "@/components/missions/missions-bottom-sheet";
 export const dynamic = "force-dynamic";
 
 export default async function DungeonPage() {
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/signin");
+  const me = await requireSession();
 
   const now = new Date();
-  const dungeon = await getCurrentActiveDungeon(prisma, now);
+  const dungeon = await getCurrentActiveDungeon(now);
 
   // 빈 상태 — 던전이 없을 때
   if (!dungeon) {
@@ -34,41 +30,18 @@ export default async function DungeonPage() {
   }
 
   // 최신 snapshot — 적 분류용
-  const snapshot = await prisma.worldSnapshot.findFirst({
-    orderBy: { ts: "desc" },
-    select: { carbonIntensity: true, supplyReserveRate: true },
-  });
+  const snapshot = await getLatestSnapshot();
   if (!snapshot) {
     // snapshot 없으면 가드 — 일반적이지 않은 상태
     return <DungeonEmptyState message="전력 데이터를 불러오는 중입니다." />;
   }
 
-  const carbonIntensity = Number(snapshot.carbonIntensity);
-  const supplyReserveRate = Number(snapshot.supplyReserveRate);
+  const { carbonIntensity, supplyReserveRate } = snapshot;
   const battlefield = getBattlefield(carbonIntensity);
   const enemy = ENEMY_META[battlefield];
 
   // 던전 미션 (이 dungeonId로 발급된 본인 미션)
-  const missionRows = await prisma.mission.findMany({
-    where: {
-      userId: user.id,
-      dungeonId: dungeon.id,
-      type: "DUNGEON",
-    },
-    include: {
-      pool: {
-        select: {
-          title: true,
-          description: true,
-          category: true,
-          timeSlot: true,
-          baseReward: true,
-          estimatedKwh: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  const missionRows = await getDungeonMissions(me.id, dungeon.id);
 
   const missions: MissionItem[] = missionRows.map((m) => ({
     id: m.id,
@@ -85,7 +58,7 @@ export default async function DungeonPage() {
   }));
 
   // 길드 기여도
-  const contribution = await getGuildContribution(prisma, user.id, dungeon.id);
+  const contribution = await getGuildContribution(me.id, dungeon.id);
   const remainingSec = Math.max(
     0,
     Math.floor((dungeon.expiresAt.getTime() - now.getTime()) / 1000),

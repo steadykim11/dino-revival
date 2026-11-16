@@ -1,7 +1,7 @@
 // 비로그인 접근 페이지(가입, 로그인, 비밀번호 재설정) 공통 레이아웃
 // 이미 로그인된 사용자는 메인으로 redirect (가입, 로그인 페이지 재진입 방지)
 
-import { createServerSupabase } from "@/lib/auth/supabase-server";
+import { getAuthUser } from "@/lib/auth/session.server";
 import { redirect } from "next/navigation";
 
 export default async function AuthLayout({
@@ -9,10 +9,7 @@ export default async function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
 
   if (user) {
     redirect("/");

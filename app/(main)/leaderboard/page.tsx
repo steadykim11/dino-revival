@@ -6,10 +6,8 @@
 // 데이터는 서버에서 lib/guilds/score 직접 호출 (API self-loopback 회피).
 // 첫 진입 fetch만 — 폴링 없음 (점수 캐시 5분 TTL이라 의미 약함).
 
-import { redirect } from "next/navigation";
-import { createServerSupabase } from "@/lib/auth/supabase-server";
-import { prisma } from "@/lib/prisma";
-import { getLeaderboard, getGuildDetail } from "@/lib/guilds/score";
+import { requireSession } from "@/lib/auth/session.server";
+import { getLeaderboard, getGuildDetail } from "@/lib/guilds/score.server";
 import { LeaderboardTabs } from "@/components/leaderboard/leaderboard-tabs";
 import { LocalList } from "@/components/leaderboard/local-list";
 import { GlobalList } from "@/components/leaderboard/global-list";
@@ -25,22 +23,12 @@ export default async function LeaderboardPage({ searchParams }: PageProps) {
   const tab: Tab = params.tab === "global" ? "global" : "local";
 
   // 본인 정보 조회 — (main) layout이 User + Dino 가드하므로 여기선 무조건 존재
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/signin");
-
-  const me = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true, nickname: true, guildId: true },
-  });
-  if (!me) redirect("/onboarding");
+  const me = await requireSession();
 
   // 두 탭의 데이터를 미리 가져옴 (탭 전환 시 라운드트립 회피).
   const [leaderboard, guildDetail] = await Promise.all([
-    getLeaderboard(prisma),
-    me.guildId ? getGuildDetail(prisma, me.guildId) : Promise.resolve(null),
+    getLeaderboard(),
+    me.guildId ? getGuildDetail(me.guildId) : Promise.resolve(null),
   ]);
 
   // 헤더에 표시할 본인 길드 정보

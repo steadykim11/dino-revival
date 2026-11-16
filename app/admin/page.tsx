@@ -9,8 +9,9 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { isAdminUserId } from "@/lib/auth/admin";
-import { prisma } from "@/lib/prisma";
-import { getCurrentActiveDungeon } from "@/lib/dungeon/lifecycle";
+import { getDino } from "@/lib/dino/dino.server";
+import { getRecentSnapshots } from "@/lib/world/snapshot-reader.server";
+import { getCurrentActiveDungeon } from "@/lib/dungeon/lifecycle.server";
 import { isSnapshotStale } from "@/lib/world/staleness";
 import { PageHeader } from "@/components/layout/page-header";
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
@@ -31,28 +32,9 @@ export default async function AdminPage() {
 
   // 2) 병렬 데이터 패치
   const [activeDungeon, dino, snapshots] = await Promise.all([
-    getCurrentActiveDungeon(prisma),
-    prisma.dino.findUnique({
-      where: { userId: ctx.user.id },
-      select: {
-        id: true,
-        name: true,
-        stage: true,
-        totalCleanEnergy: true,
-        hatchedAt: true,
-        evolvedAt: true,
-      },
-    }),
-    prisma.worldSnapshot.findMany({
-      orderBy: { ts: "desc" },
-      take: 5,
-      select: {
-        ts: true,
-        carbonIntensity: true,
-        supplyReserveRate: true,
-        currentLoad: true,
-      },
-    }),
+    getCurrentActiveDungeon(),
+    getDino(ctx.user.id),
+    getRecentSnapshots(5),
   ]);
 
   return (
@@ -109,8 +91,8 @@ export default async function AdminPage() {
               }
               snapshots={snapshots.map((s) => ({
                 ts: s.ts.toISOString(),
-                carbonIntensity: Number(s.carbonIntensity),
-                supplyReserveRate: Number(s.supplyReserveRate),
+                carbonIntensity: s.carbonIntensity,
+                supplyReserveRate: s.supplyReserveRate,
                 currentLoad: s.currentLoad,
               }))}
             />

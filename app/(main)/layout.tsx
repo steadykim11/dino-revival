@@ -1,8 +1,6 @@
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar";
 import { SideNav } from "@/components/layout/side-nav";
-import { createServerSupabase } from "@/lib/auth/supabase-server";
-import { prisma } from "@/lib/prisma";
-import { redirect } from "next/navigation";
+import { requireSession } from "@/lib/auth/session.server";
 
 /**
  * 로그인 후 페이지에 공통으로 적용되는 레이아웃.
@@ -17,7 +15,7 @@ import { redirect } from "next/navigation";
  *     mx-auto는 viewport 기준이라 그대로 두면 사이드바 영역까지 침범 가능.
  *     바깥 컨테이너에 lg:mr-60(240px)을 주면 콘텐츠가 (viewport - 240) 영역의 중앙에 위치.
  *
- * 인증 가드(D8):
+ * 인증 가드 (lib/auth/session.server.ts의 requireSession):
  * - 미인증 시 /landing으로 redirect (SC-01)
  * - 인증됐지만 User row 없으면 /onboarding
  * - User row 있고 Dino row 없음 → /onboarding/egg
@@ -29,27 +27,8 @@ export default async function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/landing");
-  }
-
-  const profile = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true, dino: { select: { id: true } } },
-  });
-
-  if (!profile) {
-    redirect("/onboarding");
-  }
-
-  if (!profile.dino) {
-    redirect("/onboarding/egg");
-  }
+  // 미인증·온보딩 미완료면 여기서 redirect
+  await requireSession();
 
   return (
     <div className="min-h-dvh bg-stone-100">

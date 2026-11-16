@@ -1,30 +1,14 @@
 import { CarbonClock } from "@/components/world/carbon-clock";
 import { PageHeader } from "@/components/layout/page-header";
-import { createServerSupabase } from "@/lib/auth/supabase-server";
-import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/auth/session.server";
+import { getDino } from "@/lib/dino/dino.server";
 import { DinoSection } from "@/components/dino/dino-section";
 import { MissionsSection } from "@/components/missions/missions-section";
 import { DungeonBanner } from "@/components/dungeon/dungeon-banner";
 
 export default async function HomePage() {
-  // layout 가드 통과 후라 user·dino 존재 보장.
-  // 다만 타입 안전성 위해 한 번 더 조회 (Server Component는 가볍게 호출 가능).
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const dino = user
-    ? await prisma.dino.findUnique({
-        where: { userId: user.id },
-        select: {
-          name: true,
-          species: true,
-          stage: true,
-          totalCleanEnergy: true,
-        },
-      })
-    : null;
+  const me = await requireSession();
+  const dino = await getDino(me.id);
 
   return (
     <>

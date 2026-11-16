@@ -2,9 +2,10 @@
 // D14 수정: MissionLog의 stageBefore/stageAfter 사용 + evolution prop 전달
 // D22: intro 인터스티셜 phase 추가 (missionTitle, battlefieldLabel prop 전달)
 
-import { notFound, redirect } from "next/navigation";
-import { createServerSupabase } from "@/lib/auth/supabase-server";
-import { prisma } from "@/lib/prisma";
+import { notFound } from "next/navigation";
+import { requireSession } from "@/lib/auth/session.server";
+import { getDino } from "@/lib/dino/dino.server";
+import { getMissionLog } from "@/lib/missions/missions.server";
 import { getBattlefield } from "@/lib/missions/reward-calculator";
 import { ENEMY_META } from "@/lib/battle/enemy-types";
 import { BattlePageClient } from "@/components/battle/battle-page-client";
@@ -22,37 +23,13 @@ const BATTLEFIELD_LABEL = {
 export default async function BattlePage({ params }: PageProps) {
   const { missionLogId } = await params;
 
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/signin");
+  const me = await requireSession();
 
   // D14: stageBefore/stageAfter 추가 select
-  const log = await prisma.missionLog.findUnique({
-    where: { id: missionLogId },
-    select: {
-      userId: true,
-      missionTitle: true,
-      cleanEnergyEarned: true,
-      co2ReducedKg: true,
-      intimacyEarned: true,
-      carbonIntensityAtCompletion: true,
-      stageBefore: true,
-      stageAfter: true,
-    },
-  });
-  if (!log || log.userId !== user.id) notFound();
+  const log = await getMissionLog(missionLogId);
+  if (!log || log.userId !== me.id) notFound();
 
-  const dino = await prisma.dino.findUnique({
-    where: { userId: user.id },
-    select: {
-      name: true,
-      species: true,
-      stage: true,
-      totalCleanEnergy: true,
-    },
-  });
+  const dino = await getDino(me.id);
   if (!dino) notFound();
 
   // 전장 → 적

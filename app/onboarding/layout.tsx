@@ -8,8 +8,7 @@
 // - /onboarding (SC-03) : User row 없으면 폼 표시, 있으면 /onboarding/egg로 이동
 // - /onboarding/egg (SC-04, D10) : Dino row 없으면 폼 표시
 
-import { createServerSupabase } from "@/lib/auth/supabase-server";
-import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth/session.server";
 import { redirect } from "next/navigation";
 
 export default async function OnboardingLayout({
@@ -17,22 +16,14 @@ export default async function OnboardingLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await getSession();
 
-  if (!user) {
+  if (!session) {
     redirect("/signin");
   }
 
-  const profile = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true, dino: { select: { id: true } }, },
-  });
-
   // 온보딩 완료자(User + Dino 모두 있음)는 메인으로
-  if (profile && profile.dino) {
+  if (session.profile?.hasDino) {
     redirect("/");
   }
 
