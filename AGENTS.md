@@ -37,8 +37,8 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 
 1. **DB 접근은 `lib/` 안에서만.** `app/`과 `components/`는 `prisma`를 import하지 않고 `lib`의 이름 붙은 함수를 호출한다. DB에 접근하는 파일은 `*.server.ts`로 이름 짓고, 클라이언트 컴포넌트에서의 import는 ESLint 규칙으로 막는다. (`server-only` 패키지는 쓰지 않는다 — `jobs/`가 일반 Node로 같은 파일을 실행하는데 그 환경에서는 예외를 던진다.)
 2. **읽기는 서버 컴포넌트가 `lib`을 직접 호출, 쓰기는 Route Handler.** 자기 화면만 쓰는 GET 라우트를 새로 만들지 않는다. (쓰기를 Route Handler로 두는 이유는 ADR 10.)
-3. **세션 확인은 헬퍼로.** 페이지·레이아웃은 `lib/auth/session.server.ts`의 `requireSession`/`getSession`/`getAuthUser`를, Route Handler는 `lib/auth/require-user.ts`의 `requireUser`를 쓴다. `supabase.auth.getUser()`를 직접 부르지 않는다.
-4. **라우트 보일러플레이트는 래퍼 하나로.** 인증·JSON 파싱·zod 검증·에러 응답을 라우트마다 손으로 쓰지 않는다.
+3. **세션 확인은 헬퍼로.** 페이지·레이아웃은 `lib/auth/session.server.ts`의 `requireSession`/`getSession`/`getAuthUser`를 쓴다. Route Handler는 래퍼(규칙 4)가 대신 확인한다. `supabase.auth.getUser()`를 직접 부르지 않는다.
+4. **모든 Route Handler는 `lib/http/route.ts`의 `route()`로 감싼다.** `route({ auth: "public" | "user" | "admin", body: zodSchema }, async ({ req, user, body }) => ...)`. 인증·JSON 파싱·zod 검증·예외 처리를 라우트에서 손으로 쓰지 않는다. 도메인 오류는 `errorResponse(code, message, status)`로 돌려준다. 에러 응답 형식은 `{ error: { code, message, details? } }`.
 5. **월드 상태 폴링은 Provider 하나로.** 컴포넌트가 각자 `/api/world/state`를 폴링하지 않는다.
 
 그 밖에:
@@ -71,8 +71,8 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 | 0 | 안전망: Vitest, CI, 지침 정리, RLS 마이그레이션 | 완료 |
 | 1 | 수집 이전: `jobs/` 신설, Vercel cron·ingest 제거, 데이터 지연 표시, GitHub Actions 스케줄 수집 | 완료 |
 | 2 | 구조 전반부: DB 접근을 `lib`으로 모으기(규칙 1), 세션 헬퍼(규칙 3) | 완료 |
-| 3 | DB 정합성: 유니크 제약, 행 잠금, 중복 컬럼·캐시 테이블 정리 | 3-A 완료, 3-B 구현 완료(배포 2단계 진행 중) |
-| 4 | 구조 후반부: 규칙 2·4·5, 타입·파일 재배치, ADR 정리 | |
+| 3 | DB 정합성: 유니크 제약, 행 잠금, 중복 컬럼·캐시 테이블 정리 | 완료 (운영 DB 적용 확인 2026-11-17) |
+| 4 | 구조 후반부: 규칙 2·4·5, 타입·파일 재배치, ADR 정리 | 4-A(라우트 래퍼) 구현 완료. 4-B(월드 상태 Provider·배너 버그·폴링), 4-C(GET 라우트를 서버 컴포넌트로), 4-D(타입·파일 재배치, ADR 번호) 남음 |
 | 5 | 기능 추가 | |
 
 단계를 마치면 이 표의 상태를 갱신한다.
@@ -86,7 +86,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 3단계는 PR 두 개로 나눈다. 20분마다 수집 작업이 같은 DB에 쓰고 있으므로, 스키마 변경은 이전 코드와 새 코드가 모두 동작하는 순서로 적용한다.
 
 - **3-A (제약 추가, 데이터 삭제 없음)** — 완료, 운영 DB 적용 확인(2026-11-17). 마이그레이션 `20261117000000_integrity_constraints`. 내용은 ADR 28.
-- **3-B (중복 컬럼·테이블 삭제)** — `refactor/phase-3b`에서 구현. 내용은 ADR 29. **배포를 두 번에 나눈다**:
+- **3-B (중복 컬럼·테이블 삭제)** — 완료, 운영 DB 적용 확인(2026-11-17). 내용은 ADR 29. 배포를 두 번에 나눴다:
   1. 코드와 Prisma 스키마에서 필드를 뺀 커밋을 먼저 배포한다 (마이그레이션 없음).
   2. 그 배포가 끝난 뒤 삭제 마이그레이션 `20261117010000_drop_redundant_columns`를 올린다.
   순서를 지키는 이유: 이전 코드의 Prisma 클라이언트는 모든 컬럼을 SELECT하므로, 컬럼을 먼저 지우면 새 코드가 배포될 때까지 조회가 실패한다. **컬럼이나 테이블을 지우는 변경은 앞으로도 이 순서로 한다.**
@@ -96,6 +96,4 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 ## 알려진 문제 (해당 단계에서 수정)
 
 - `components/dungeon/dungeon-banner.tsx`의 `if (!cancelled) return;` 조건이 반대라 배너가 갱신되지 않는다 (4단계, Provider 도입 시).
-- `/admin`은 비로그인 상태에서 404가 아니라 500을 낸다 (`requireUser`가 던진 예외를 페이지가 처리하지 않음, 4단계).
-- `lib/types/api.ts`의 응답 필드명 `datails`는 `details`의 오타다 (4단계, 라우트 래퍼 도입 시).
 - `lib/static-data/weekly-peak-forecast.ts` 데이터가 2026-05-17에 끝나 "오늘의 예상 피크"가 비어 있다 (5단계, KPX `forecastLoad`로 대체 검토).

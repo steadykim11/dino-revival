@@ -809,3 +809,32 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 - 적용 전 운영 DB 확인: 저장된 길드 점수가 15개 길드 모두 계산값과 일치, `isFallback`은 전 행 false, `temperature`는 전 행 NULL. 지워지는 값 중 다시 만들 수 없는 것은 없다.
 - 배포는 두 번에 나눈다. 필드를 뺀 코드를 먼저 배포하고, 그 뒤에 삭제 마이그레이션을 올린다. 이전 코드의 Prisma 클라이언트가 모든 컬럼을 SELECT하기 때문이다. 컬럼을 지우는 변경은 앞으로도 이 순서를 따른다.
 - 한 지역에 길드 여러 개를 두려면 `guilds.regionCode`의 유니크 제약을 풀어야 한다.
+
+---
+
+## 30. Route Handler 래퍼 — 인증·검증·에러 응답을 한 곳에서 (4단계 A)
+
+**결정**: 모든 `app/api` 라우트를 `lib/http/route.ts`의 `route()`로 감싼다. 래퍼가 인증(`public`/`user`/`admin`), JSON 파싱, zod 검증, 예외 처리를 맡고 핸들러는 `{ req, user, body }`만 받는다. 에러 응답은 `{ error: { code, message, details? } }` 하나로 통일한다. 본체(`create-route.ts`)는 인증 수단을 주입받아 Supabase·DB 없이 테스트한다.
+
+**이유**:
+
+- 라우트 16개가 같은 30줄(인증 try/catch → JSON 파싱 → 검증 → 에러 응답)을 각자 손으로 쓰고 있었다. 인증 방식만 세 가지(`withAuth`, 인라인 `requireUser`, `withAdmin`)였다.
+- 손으로 쓰다 보니 어긋난 곳이 있었다. 검증 오류 상세의 키가 `datails`로 오타 나 있어, `details`를 읽는 가입 화면에 항목별 오류가 한 번도 표시되지 않았다. 관리자 라우트만 에러 코드와 상세 형식이 달랐다.
+- 예상하지 못한 예외는 Next의 기본 500(HTML)으로 나가 클라이언트의 `res.json()`이 실패했다. 이제 JSON `INTERNAL_ERROR`로 나가고 내용은 서버 로그에만 남는다.
+
+**함께 바꾼 것**:
+
+- `/admin` 페이지가 비로그인 상태에서 500을 내던 것을 404로 (관리자가 아닐 때와 같게 — 페이지 존재를 숨긴다).
+- 호출하는 곳이 없던 라우트 삭제: `GET /api/guilds/leaderboard`, `GET /api/guilds/me`, `GET /api/me/dino`. 해당 화면은 서버 컴포넌트가 `lib`을 직접 호출한다 (ADR 19의 "호출자 없는 라우트를 만들지 않는다"와 같은 방침).
+- `/api/health`가 DB 오류 메시지를 그대로 응답에 넣던 것을 고정 문구로 (접속 정보가 섞일 수 있다).
+- `lib/auth/require-user.ts`, `withAuth`, `withAdmin` 삭제. 라우트의 인증도 페이지와 같은 `getAuthUser`를 쓴다.
+
+**대안**:
+
+- Server Action으로 전환 — ADR 10에서 Route Handler를 택한 이유(외부에서 호출 가능, 백엔드 분리 여지)가 그대로라 유지.
+- 미들웨어에서 인증 — API가 401 JSON 대신 리다이렉트를 받게 된다 (ADR 12).
+
+**후속**:
+
+- 검증 오류의 순서가 바뀐 곳이 있다. `PUT /api/me/dino`는 프로필 확인보다 본문 검증이 먼저다.
+- 래퍼는 `redirect()`·`notFound()` 같은 Next 내부 신호를 가로채지 않는다 (`unstable_rethrow`).
