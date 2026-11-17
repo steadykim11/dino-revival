@@ -4,27 +4,16 @@
 //   - dino === null → /onboarding/egg (SC-04 미완, D10)
 //   - 둘 다 있음 → / (메인)
 
-import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
+import { route } from "@/lib/http/route";
 import { getUserWithDinoAndGuild } from "@/lib/users/users.server";
-import { errorResponse } from "@/lib/types/api";
 
-export async function GET() {
-  let ctx;
-  try {
-    ctx = await requireUser();
-  } catch (err) {
-    if (err instanceof UnauthorizedError) {
-      return errorResponse("UNAUTHORIZED", "로그인이 필요합니다.", 401);
-    }
-    throw err;
-  }
-
-  const user = await getUserWithDinoAndGuild(ctx.user.id);
+export const GET = route({ auth: "user" }, async ({ user: authUser }) => {
+  const user = await getUserWithDinoAndGuild(authUser.id);
 
   return Response.json({
     auth: {
-      id: ctx.user.id,
-      email: ctx.user.email,
+      id: authUser.id,
+      email: authUser.email,
     },
     profile: user
       ? {
@@ -47,4 +36,4 @@ export async function GET() {
         }
       : null,
   });
-}
+});

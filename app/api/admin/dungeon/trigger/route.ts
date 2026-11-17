@@ -4,13 +4,12 @@
 // - 발령 규칙(메트릭 기록, idempotent, 미션 발급)은
 //   lib/dungeon/monitor.server.ts의 triggerDungeonManually 참조.
 
-import { NextResponse } from "next/server";
-import { withAdmin } from "@/lib/auth/admin";
 import { triggerDungeonManually } from "@/lib/dungeon/monitor.server";
+import { route } from "@/lib/http/route";
 
 export const dynamic = "force-dynamic";
 
-export const POST = withAdmin(async ({ user }, _req) => {
+export const POST = route({ auth: "admin" }, async ({ user }) => {
   const { dungeon, created, issuedMissions } = await triggerDungeonManually();
 
   console.log("[admin/dungeon/trigger]", {
@@ -20,7 +19,7 @@ export const POST = withAdmin(async ({ user }, _req) => {
     by: user.id,
   });
 
-  return NextResponse.json({
+  return Response.json({
     dungeon: {
       id: dungeon.id,
       activatedAt: dungeon.activatedAt.toISOString(),

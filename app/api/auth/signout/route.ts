@@ -1,9 +1,9 @@
 // 세션 무효화 + 쿠키 제거(setAll이 처리)
 
 import { createServerSupabase } from "@/lib/auth/supabase-server";
-import { errorResponse } from "@/lib/types/api";
+import { errorResponse, route } from "@/lib/http/route";
 
-export async function POST() {
+export const POST = route({ auth: "public" }, async () => {
   const supabase = await createServerSupabase();
   const { error } = await supabase.auth.signOut();
 
@@ -16,4 +16,4 @@ export async function POST() {
   }
 
   return Response.json({ ok: true });
-}
+});

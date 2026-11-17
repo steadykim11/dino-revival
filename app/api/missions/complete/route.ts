@@ -2,14 +2,12 @@
 // POST { missionId } → 보상 내역·진화 여부 반환.
 //
 // 응답 ok:
-//   { reward, co2ReducedKg, evolved, dino }
+//   { missionLogId, reward, co2ReducedKg, evolved, dino }
 // 응답 fail:
 //   { error: { code, message } } — code: MISSION_NOT_FOUND | ALREADY_COMPLETED | EXPIRED | ...
 
-import { NextRequest } from "next/server";
 import { z } from "zod";
-import { requireUser, UnauthorizedError } from "@/lib/auth/require-user";
-import { errorResponse } from "@/lib/types/api";
+import { errorResponse, route } from "@/lib/http/route";
 import {
   completeMission,
   type CompleteFailReason,
@@ -36,52 +34,25 @@ const ERROR_MESSAGES: Record<CompleteFailReason, string> = {
     "월드 상태를 확인할 수 없습니다. 잠시 후 다시 시도해주세요.",
 };
 
-export async function POST(request: NextRequest) {
-  let ctx;
-  try {
-    ctx = await requireUser();
-  } catch (err) {
-    if (err instanceof UnauthorizedError) {
-      return errorResponse("UNAUTHORIZED", "로그인이 필요합니다.", 401);
+export const POST = route(
+  { auth: "user", body: PostSchema },
+  async ({ user, body }) => {
+    const result = await completeMission(user.id, body.missionId);
+
+    if (!result.ok) {
+      return errorResponse(
+        result.reason,
+        ERROR_MESSAGES[result.reason],
+        ERROR_HTTP_STATUS[result.reason],
+      );
     }
-    throw err;
-  }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return errorResponse("INVALID_JSON", "요청 본문이 올바르지 않습니다.", 400);
-  }
-
-  const parsed = PostSchema.safeParse(body);
-  if (!parsed.success) {
-    return errorResponse(
-      "VALIDATION_ERROR",
-      "입력값이 올바르지 않습니다.",
-      400,
-      parsed.error.flatten().fieldErrors,
-    );
-  }
-
-  const result = await completeMission(
-    ctx.user.id,
-    parsed.data.missionId,
-  );
-
-  if (!result.ok) {
-    return errorResponse(
-      result.reason,
-      ERROR_MESSAGES[result.reason],
-      ERROR_HTTP_STATUS[result.reason],
-    );
-  }
-
-  return Response.json({
-    missionLogId: result.missionLogId,
-    reward: result.reward,
-    co2ReducedKg: result.co2ReducedKg,
-    evolved: result.evolved,
-    dino: result.dino,
-  });
-}
+    return Response.json({
+      missionLogId: result.missionLogId,
+      reward: result.reward,
+      co2ReducedKg: result.co2ReducedKg,
+      evolved: result.evolved,
+      dino: result.dino,
+    });
+  },
+);

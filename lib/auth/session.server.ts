@@ -1,9 +1,9 @@
-// 페이지·레이아웃용 세션 헬퍼.
+// 세션 헬퍼. 페이지·레이아웃이 직접 쓰고, Route Handler는 lib/http/route.ts의 래퍼를 통해 쓴다.
 //
 // React cache()로 감싸 한 요청 안에서는 Supabase Auth 호출과 프로필 조회가
 // 한 번만 일어난다 (레이아웃과 페이지가 각각 불러도 중복되지 않음).
 //
-// Route Handler는 lib/auth/require-user.ts의 requireUser를 쓴다.
+// (cache()는 서버 컴포넌트 렌더링 중에만 중복을 없앤다. Route Handler에서는 그냥 호출된다.)
 
 import { cache } from "react";
 import { redirect } from "next/navigation";

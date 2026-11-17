@@ -2,17 +2,16 @@
 // - 오늘자 DAILY 미션이 3개 미만이면 조회 중에 발급된다 (getTodayMissions 참조)
 // - DUNGEON 미션이 있으면 함께 반환 (D18에서 활용)
 
-import { NextResponse } from "next/server";
-import { withAuth } from "@/lib/auth/require-user";
+import { route } from "@/lib/http/route";
 import { getTodayMissions } from "@/lib/missions/missions.server";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withAuth(async ({ user }) => {
+export const GET = route({ auth: "user" }, async ({ user }) => {
   const now = new Date();
   const missions = await getTodayMissions(user.id, now);
 
-  return NextResponse.json({
+  return Response.json({
     missions: missions.map((m) => ({
       id: m.id,
       poolId: m.poolId,

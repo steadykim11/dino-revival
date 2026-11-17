@@ -2,16 +2,15 @@
 //
 // - "오늘 발급된 DAILY 미션을 모두 삭제하고 다시 발급" — 시연 시점에 미션 구성이
 //   상황에 안 맞을 때 빠르게 갱신하기 위한 컨트롤.
-// - 본인(ctx.user.id) 대상으로만. 와이어프레임 "오늘 미션 재생성" 그대로.
+// - 본인(user.id) 대상으로만. 와이어프레임 "오늘 미션 재생성" 그대로.
 // - 삭제·재발급 규칙은 lib/missions/missions.server.ts의 regenerateDailyMissions 참조.
 
-import { NextResponse } from "next/server";
-import { withAdmin } from "@/lib/auth/admin";
+import { route } from "@/lib/http/route";
 import { regenerateDailyMissions } from "@/lib/missions/missions.server";
 
 export const dynamic = "force-dynamic";
 
-export const POST = withAdmin(async ({ user }, _req) => {
+export const POST = route({ auth: "admin" }, async ({ user }) => {
   const { deletedCount, result } = await regenerateDailyMissions(user.id);
 
   console.log("[admin/missions/regenerate]", {
@@ -22,7 +21,7 @@ export const POST = withAdmin(async ({ user }, _req) => {
   });
 
   if (result.status === "failed") {
-    return NextResponse.json(
+    return Response.json(
       {
         deleted: deletedCount,
         regenerated: false,
@@ -32,7 +31,7 @@ export const POST = withAdmin(async ({ user }, _req) => {
     );
   }
 
-  return NextResponse.json({
+  return Response.json({
     deleted: deletedCount,
     regenerated: true,
     issueStatus: result.status,

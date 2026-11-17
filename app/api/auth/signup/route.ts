@@ -1,9 +1,8 @@
-import { createServerSupabase } from "@/lib/auth/supabase-server";
-import { errorResponse } from "@/lib/types/api";
-import { NextRequest } from "next/server";
-import { email, z } from "zod";
+// 가입. auth.users에만 row를 만든다 — User 테이블 row는 SC-03 프로필 등록에서 생성.
 
-// auth.users에만 row 생성, User 테이블 row에는 SC-03 프로필 등록에사 생성
+import { z } from "zod";
+import { createServerSupabase } from "@/lib/auth/supabase-server";
+import { errorResponse, route } from "@/lib/http/route";
 
 const SignupSchema = z.object({
   email: z.email("올바른 이메일 형식이 아닙니다."),
@@ -14,53 +13,39 @@ const SignupSchema = z.object({
     .regex(/[0-9]/, "비밀번호는 숫자를 포함해야 합니다."),
 });
 
-export async function POST(request: NextRequest) {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return errorResponse("INVALID_JSON", "요청 본문이 올바르지 않습니다.", 400);
-  }
+export const POST = route(
+  { auth: "public", body: SignupSchema },
+  async ({ body }) => {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase.auth.signUp({
+      email: body.email,
+      password: body.password,
+    });
 
-  const parsed = SignupSchema.safeParse(body);
-  if (!parsed.success) {
-    return errorResponse(
-      "VALIDATION_ERROR",
-      "입력값이 올바르지 않습니다.",
-      400,
-      parsed.error.flatten().fieldErrors,
-    );
-  }
-
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
-  });
-
-  if (error) {
-    // supabase 에러 코드 매핑
-    if (error.code === "user_already_exists" || error.status === 422) {
+    if (error) {
+      // supabase 에러 코드 매핑
+      if (error.code === "user_already_exists" || error.status === 422) {
+        return errorResponse(
+          "EMAIL_ALREADY_EXISTS",
+          "이미 사용중인 이메일입니다.",
+          409,
+        );
+      }
       return errorResponse(
-        "EMAIL_ALREADY_EXISTS",
-        "이미 사용중인 이메일입니다.",
-        409,
+        "SIGNUP_FAILED",
+        error.message ?? "가입에 실패했습니다.",
+        error.status ?? 500,
       );
     }
-    return errorResponse(
-      "SIGNUP_FAILED",
-      error.message ?? "가입에 실패했습니다.",
-      error.status ?? 500,
-    );
-  }
 
-  // supabase 설정에서 Confirm email을 off로 뒀으므로 session 즉시 반환
-  // 쿠키는 supabase-server의 setAll에서 자동으로 set
-  return Response.json(
-    {
-      user: { id: data.user?.id, email: data.user?.email },
-      needsOnboarding: true,
-    },
-    { status: 201 },
-  );
-}
+    // supabase 설정에서 Confirm email을 off로 뒀으므로 session 즉시 반환
+    // 쿠키는 supabase-server의 setAll에서 자동으로 set
+    return Response.json(
+      {
+        user: { id: data.user?.id, email: data.user?.email },
+        needsOnboarding: true,
+      },
+      { status: 201 },
+    );
+  },
+);
