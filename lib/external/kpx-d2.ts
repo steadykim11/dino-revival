@@ -60,7 +60,7 @@ export async function fetchKpxD2(): Promise<KpxD2Result> {
   const raw = await fetchExternal(url, {
     source: "KPX_D2",
     timeoutMs: 20000,
-    retries: 2,
+    retries: 1, // 실패한 호출도 일일 한도(100회)를 쓴다
     retryDelayMs: 3000,
   });
 

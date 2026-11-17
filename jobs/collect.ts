@@ -1,4 +1,4 @@
-// 수집 작업 — 5분마다 실행.
+// 수집 작업 — 20분마다 실행 (주기는 lib/world/staleness.ts의 COLLECT_INTERVAL_MIN).
 //
 //   1) KPX 호출 → world_snapshots에 UPSERT
 //   2) 던전 모니터 (만료 정리 + 예비율 기준 자동 발령)

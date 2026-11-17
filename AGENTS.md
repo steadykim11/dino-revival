@@ -57,7 +57,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 ## 인프라
 
 - Vercel은 호스팅만 맡는다. Vercel Cron과 수집용 API 라우트는 없다.
-- 수집은 GitHub Actions가 한다. `.github/workflows/collect.yml`이 5분마다 `jobs/collect.ts`를 실행해 KPX를 호출하고 DB에 직접 기록한 뒤 던전 모니터를 돌린다 (ADR 24·26). Secrets는 `DATABASE_URL`, `KPX_API_KEY`.
+- 수집은 GitHub Actions가 한다. `.github/workflows/collect.yml`이 20분마다 `jobs/collect.ts`를 실행해 KPX를 호출하고 DB에 직접 기록한 뒤 던전 모니터를 돌린다 (ADR 24·26). Secrets는 `DATABASE_URL`, `KPX_API_KEY`. **공공데이터포털 한도는 API당 하루 100회**라 주기를 20분(하루 72회)으로 둔다 — 주기를 줄이거나 재시도를 늘리기 전에 이 한도를 확인할 것.
 - `jobs/`는 Next와 무관하게 `tsx`로 실행된다. 여기서 import하는 `lib` 코드는 Next 전용 API(`next/headers`, `server-only` 등)에 의존하면 안 된다.
 - GitHub의 schedule은 정시를 보장하지 않는다(지연·건너뜀 가능). 로컬에서는 `pnpm job:collect`로 1회 실행할 수 있고, `--dry-run`을 붙이면 DB에 쓰지 않는다. 이전의 "KPX가 클라우드 IP를 차단한다"는 제약은 새 주소(`apis.data.go.kr`)에는 해당하지 않는다 (ADR 25).
 - 일일 미션은 자정 cron 없이 `/api/missions/today` 접속 시에만 발급된다.
@@ -85,7 +85,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 ### 3단계 시작 전에 정할 것
 
 - **길드 점수는 누적 점수로 둔다 (2026-11-17 결정).** 시즌제는 5단계의 기능 후보다. 3단계에서는 `guilds.seasonScore`·`leaderboard_cache`를 지우고 길드원 `Dino.totalCleanEnergy`의 합을 쿼리로 계산하며, "시즌"이라는 이름을 정리한다.
-- 3단계는 실제 DB에 되돌리기 어려운 마이그레이션을 적용한다. 5분마다 수집 작업이 같은 DB에 쓰고 있으므로, 스키마 변경은 이전 코드와 새 코드가 모두 동작하는 순서로 나눠 적용한다.
+- 3단계는 실제 DB에 되돌리기 어려운 마이그레이션을 적용한다. 20분마다 수집 작업이 같은 DB에 쓰고 있으므로, 스키마 변경은 이전 코드와 새 코드가 모두 동작하는 순서로 나눠 적용한다.
 
 ### 3단계에서 할 일 (진단 결과)
 

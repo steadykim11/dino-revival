@@ -1,17 +1,19 @@
 name: Collect
 
-# 5분마다 KPX 전력 데이터를 수집해 DB에 기록하고 던전 모니터를 실행한다 (ADR 26).
+# 20분마다 KPX 전력 데이터를 수집해 DB에 기록하고 던전 모니터를 실행한다 (ADR 26).
 #
 # 필요한 Secrets: DATABASE_URL, KPX_API_KEY
 #
 # - GitHub의 schedule은 정시를 보장하지 않는다. 수 분 지연되거나 혼잡 시 건너뛸 수 있다.
-#   화면의 "데이터 지연"은 15분 넘게 비어야 표시된다 (lib/world/staleness.ts).
+#   화면의 "데이터 지연"은 60분 넘게 비어야 표시된다 (lib/world/staleness.ts).
 # - 레포에 60일간 활동이 없으면 GitHub이 schedule을 자동으로 끈다. Actions 탭에서 다시 켠다.
 # - 수집에 실패하면 종료 코드 1로 실행이 실패 처리되고 GitHub이 메일로 알린다.
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # 공공데이터포털 한도가 API당 하루 100회라 20분 주기(하루 72회).
+    # 바꾸면 lib/world/staleness.ts의 COLLECT_INTERVAL_MIN도 함께 바꿀 것.
+    - cron: "*/20 * * * *"
   workflow_dispatch:
 
 # 앞 실행이 끝나지 않았으면 새 실행은 기다린다 (동시에 두 번 쓰지 않도록)

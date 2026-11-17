@@ -65,7 +65,7 @@ http://localhost:3000 접속.
 
 ### 6. KPX 데이터 적재
 
-운영 환경에서는 GitHub Actions(`.github/workflows/collect.yml`)가 5분마다 수집 작업을 실행합니다. 작업은 KPX를 호출해 DB에 직접 기록하고, 던전 만료 정리와 자동 발령도 함께 처리합니다. 레포 Secrets에 `DATABASE_URL`과 `KPX_API_KEY`가 필요합니다.
+운영 환경에서는 GitHub Actions(`.github/workflows/collect.yml`)가 20분마다 수집 작업을 실행합니다(공공데이터포털 한도가 API당 하루 100회). 작업은 KPX를 호출해 DB에 직접 기록하고, 던전 만료 정리와 자동 발령도 함께 처리합니다. 레포 Secrets에 `DATABASE_URL`과 `KPX_API_KEY`가 필요합니다.
 
 로컬에서 직접 실행할 수도 있습니다.
 
@@ -76,7 +76,7 @@ pnpm job:collect --dry-run   # KPX만 호출하고 DB에는 쓰지 않음
 
 상세 결정은 `docs/architecture.md`의 ADR 24~26 참조.
 
-수집이 15분 넘게 멈추면 메인 화면의 탄소 시계에 "데이터 지연"이 표시됩니다. 스냅샷이 하나도 없으면 `/api/world/state`는 503을 반환하고, 메인 화면은 "데이터 준비 중입니다" 스켈레톤을 표시합니다.
+수집이 60분 넘게 멈추면 메인 화면의 탄소 시계에 "데이터 지연"이 표시됩니다. 스냅샷이 하나도 없으면 `/api/world/state`는 503을 반환하고, 메인 화면은 "데이터 준비 중입니다" 스켈레톤을 표시합니다.
 
 ## 디렉토리 구조
 

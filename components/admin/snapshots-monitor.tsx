@@ -3,6 +3,8 @@
 //   page.tsx 데이터 패치 구조 일관성을 위해 props 받는 컴포넌트로)
 // - "use client" 없음 — 서버에서 렌더링
 
+import { SNAPSHOT_STALE_AFTER_MIN } from "@/lib/world/staleness";
+
 interface Snapshot {
   ts: string;
   carbonIntensity: number;
@@ -12,7 +14,7 @@ interface Snapshot {
 
 interface Props {
   snapshots: Snapshot[];
-  /** 최신 스냅샷이 15분 넘게 오래됨 */
+  /** 최신 스냅샷이 지연 기준(SNAPSHOT_STALE_AFTER_MIN)보다 오래됨 */
   isStale: boolean;
 }
 
@@ -25,7 +27,8 @@ export function SnapshotsMonitor({ snapshots, isStale }: Props) {
     <div className="overflow-x-auto">
       {isStale && (
         <p className="mb-2 text-[11px] font-medium text-amber-600">
-          수집 지연 — 최신 스냅샷이 15분 넘게 갱신되지 않았습니다.
+          수집 지연 — 최신 스냅샷이 {SNAPSHOT_STALE_AFTER_MIN}분 넘게 갱신되지
+          않았습니다.
         </p>
       )}
       <table className="w-full text-[11px]">
