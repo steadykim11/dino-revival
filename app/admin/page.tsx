@@ -7,7 +7,7 @@
 // - 4개 블록을 클라이언트 컴포넌트로 분리 (각자 fetch 호출)
 
 import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth/require-user";
+import { getAuthUser } from "@/lib/auth/session.server";
 import { isAdminUserId } from "@/lib/auth/admin";
 import { getDino } from "@/lib/dino/dino.server";
 import { getRecentSnapshots } from "@/lib/world/snapshot-reader.server";
@@ -24,16 +24,16 @@ import { SnapshotsMonitor } from "@/components/admin/snapshots-monitor";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  // 1) 가드
-  const ctx = await requireUser();
-  if (!isAdminUserId(ctx.user.id)) {
+  // 1) 가드 — 비로그인이든 관리자가 아니든 똑같이 404 (페이지 존재를 숨긴다)
+  const user = await getAuthUser();
+  if (!user || !isAdminUserId(user.id)) {
     notFound();
   }
 
   // 2) 병렬 데이터 패치
   const [activeDungeon, dino, snapshots] = await Promise.all([
     getCurrentActiveDungeon(),
-    getDino(ctx.user.id),
+    getDino(user.id),
     getRecentSnapshots(5),
   ]);
 
