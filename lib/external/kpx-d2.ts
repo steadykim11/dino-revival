@@ -23,7 +23,7 @@ const RawItemSchema = z.object({
 });
 
 const ResponseSchema = z.object({
-  tbAllSumperfuel5mResponse: z.object({
+  response: z.object({
     header: z.object({
       resultCode: z.string(),
       resultMsg: z.string(),
@@ -45,7 +45,7 @@ export type KpxD2Result = {
 };
 
 const ENDPOINT =
-  "https://openapi.kpx.or.kr/openapi/sumperfuel5m/getSumperfuel5m";
+  "https://apis.data.go.kr/B552115/sumperfuel5m/getSumperfuel5m";
 
 const xmlParser = new XMLParser({
   ignoreAttributes: true,
@@ -55,12 +55,13 @@ const xmlParser = new XMLParser({
 export async function fetchKpxD2(): Promise<KpxD2Result> {
   const url =
     `${ENDPOINT}?serviceKey=${getExternalEnv().KPX_API_KEY}` +
-    `&pageNo=1&numOfRows=1`;
+    `&dataType=xml&pageNo=1&numOfRows=1`;
 
   const raw = await fetchExternal(url, {
     source: "KPX_D2",
     timeoutMs: 20000,
-    retry: true,
+    retries: 2,
+    retryDelayMs: 3000,
   });
 
   let xml: unknown;
@@ -86,7 +87,7 @@ export async function fetchKpxD2(): Promise<KpxD2Result> {
     );
   }
 
-  const { header, body } = parsed.data.tbAllSumperfuel5mResponse;
+  const { header, body } = parsed.data.response;
   if (header.resultCode !== "00") {
     throw new ExternalApiError(
       "KPX_D2",

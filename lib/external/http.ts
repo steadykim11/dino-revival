@@ -1,7 +1,7 @@
 /**
  * 외부 API 호출용 fetch 래퍼
  * - AbortController 기반 타임아웃 (기본 8초)
- * - 1회 재시도 (5xx, 네트워크 에러)
+ * - 재시도 (5xx, 타임아웃, 네트워크 에러). 기본 1회, 횟수·간격 지정 가능
  * - 일관된 에러 타입
  */
 
@@ -22,7 +22,9 @@ export class ExternalApiError extends Error {
 export type FetchOptions = {
   source: string; // 로깅용 식별자 (ex. KPX_D1)
   timeoutMs?: number; // 기본 8000
-  retry?: boolean; // 기본 true (5xx, 네트워크 에러 시 1회)
+  retry?: boolean; // 기본 true. false면 재시도 없음
+  retries?: number; // 재시도 횟수 (기본 1)
+  retryDelayMs?: number; // 재시도 전 대기 (기본 1000)
   init?: RequestInit;
 };
 
@@ -30,7 +32,14 @@ export async function fetchExternal(
   url: string,
   opts: FetchOptions,
 ): Promise<string> {
-  const { source, timeoutMs = 8000, retry = true, init } = opts;
+  const {
+    source,
+    timeoutMs = 8000,
+    retry = true,
+    retries = 1,
+    retryDelayMs = 1000,
+    init,
+  } = opts;
 
   const attempt = async (): Promise<string> => {
     const t0 = Date.now();
@@ -81,19 +90,24 @@ export async function fetchExternal(
     }
   };
 
-  try {
-    return await attempt();
-  } catch (error) {
-    if (
-      retry &&
-      error instanceof ExternalApiError &&
-      (error.kind === "network" ||
-        error.kind === "timeout" ||
-        (error.kind === "http" && error.status && error.status >= 500))
-    ) {
-      await new Promise((r) => setTimeout(r, 1000)); //  1초 대기 후 1회 재시도
+  const maxAttempts = retry ? 1 + retries : 1;
+
+  for (let i = 1; ; i++) {
+    try {
       return await attempt();
+    } catch (error) {
+      if (i >= maxAttempts || !isRetryable(error)) throw error;
+      await new Promise((r) => setTimeout(r, retryDelayMs));
     }
-    throw error;
   }
+}
+
+/** 재시도할 가치가 있는 실패: 네트워크·타임아웃·5xx */
+export function isRetryable(error: unknown): boolean {
+  return (
+    error instanceof ExternalApiError &&
+    (error.kind === "network" ||
+      error.kind === "timeout" ||
+      (error.kind === "http" && error.status !== undefined && error.status >= 500))
+  );
 }

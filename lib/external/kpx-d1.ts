@@ -48,7 +48,7 @@ export type KpxD1Result = {
 };
 
 const ENDPOINT =
-  "https://openapi.kpx.or.kr/openapi/sukub5mMaxDatetime/getSukub5mMaxDatetime";
+  "https://apis.data.go.kr/B552115/sukub5mMaxDatetime2/getSukub5mMaxDatetime2";
 
 const xmlParser = new XMLParser({
   ignoreAttributes: true,
@@ -57,12 +57,14 @@ const xmlParser = new XMLParser({
 
 export async function fetchKpxD1(): Promise<KpxD1Result> {
   const url =
-    `${ENDPOINT}?serviceKey=${getExternalEnv().KPX_API_KEY}` + `&pageNo=1&numOfRows=1`;
+    `${ENDPOINT}?serviceKey=${getExternalEnv().KPX_API_KEY}` +
+    `&dataType=xml&pageNo=1&numOfRows=1`;
 
   const raw = await fetchExternal(url, {
     source: "KPX_D1",
     timeoutMs: 20000,
-    retry: false,
+    retries: 2,
+    retryDelayMs: 3000,
   });
 
   let xml: unknown;

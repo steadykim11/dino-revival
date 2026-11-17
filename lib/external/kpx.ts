@@ -42,16 +42,11 @@ export function calcCarbonIntensity(mix: FuelMix): number {
   return total > 0 ? weighted / total : 0;
 }
 
-// KPX D1·D2를 병렬 호출하고 통합 스냅샷으로 반환
+// KPX D1·D2를 병렬 호출하고 통합 스냅샷으로 반환.
+// (이전 openapi.kpx.or.kr은 동시 호출을 거부해 직렬 + 대기가 필요했지만,
+//  공공데이터포털 게이트웨이(apis.data.go.kr)는 동시 호출을 받는다.)
 export async function fetchWorldSnapshot(): Promise<WorldSnapshotData> {
-  // KPX 서버가 같은 키의 동시 호출을 거부하므로 직렬 호출 필요.
-  const d1 = await fetchKpxD1();
-
-  // KPX의 동시·근접 호출 거부를 회피하기 위한 짧은 대기.
-  // 직렬 await만으론 ms 단위로 연속 호출되어 일부 거부 사례 관찰됨.
-  await new Promise((r) => setTimeout(r, 5000));
-
-  const d2 = await fetchKpxD2();
+  const [d1, d2] = await Promise.all([fetchKpxD1(), fetchKpxD2()]);
 
   const carbonIntensity = calcCarbonIntensity(d2.fuelMix);
 
