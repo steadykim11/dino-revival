@@ -79,13 +79,13 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 
 1·2단계는 구현과 `pnpm check`·`next build`까지 끝났지만 PR이 아직 병합되지 않았다. 브랜치는 `main ← refactor/phase-1 ← refactor/phase-2` 순서로 쌓여 있고, 1단계 PR을 먼저 병합한다. 아래 확인이 끝나면 이 절을 지운다.
 
-- [ ] **1단계 — 수집 스크립트 실제 실행.** `DATABASE_URL`과 `KPX_API_KEY`가 있는 가정용 회선 기기에서 `pnpm job:collect --dry-run` → `pnpm job:collect`. 성공하면 `"snapshot":{"kind":"success",...}`가 출력된다. 지금까지는 환경변수 누락 시 종료 코드 1로 끝나는 것만 확인했다. 수집은 2026-05-22부터 멈춰 있어 병합으로 깨질 기존 루프는 없다.
+- [x] **1단계 — 수집 스크립트 실제 실행.** 2026-11-17에 확인: 스냅샷 기록 성공, 던전 모니터 실행, KPX 실패 시 fallback과 종료 코드 1까지 동작. 수집은 2026-05-22부터 멈춰 있었고 상시 실행기는 아직 없다(홈서버 준비 후).
 - [ ] **2단계 — 로그인 상태의 화면 확인.** 홈·미션 목록, 미션 완료 → 전투 화면, 통계·리더보드·던전, 프로필의 닉네임 중복 확인, 관리자 패널(던전 발령·종료, 공룡 조정, 미션 재생성). 비로그인 상태의 리다이렉트와 401 응답은 확인했다.
 - [ ] **병합 후** Vercel 환경변수 `CRON_SECRET`, `KPX_API_KEY`, `VERCEL_INGEST_URL`, `SUPABASE_SERVICE_ROLE_KEY` 삭제 (선택).
 
 ### 3단계 시작 전에 정할 것
 
-- **"시즌 점수"를 시즌제로 만들지, 누적 점수로 둘지.** 지금은 이름만 시즌이고 스키마에 시즌 개념이 없다(길드원 `Dino.totalCleanEnergy`의 합). 이 결정에 따라 `guilds.seasonScore`·`leaderboard_cache` 정리 방식과 `mission_logs`에 길드 정보를 남길지가 달라진다.
+- **길드 점수는 누적 점수로 둔다 (2026-11-17 결정).** 시즌제는 5단계의 기능 후보다. 3단계에서는 `guilds.seasonScore`·`leaderboard_cache`를 지우고 길드원 `Dino.totalCleanEnergy`의 합을 쿼리로 계산하며, "시즌"이라는 이름을 정리한다.
 - 3단계는 실제 DB에 되돌리기 어려운 마이그레이션을 적용한다. 1·2단계 병합이 끝난 뒤에 시작한다.
 
 ### 3단계에서 할 일 (진단 결과)
@@ -104,4 +104,5 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 - `/admin`은 비로그인 상태에서 404가 아니라 500을 낸다 (`requireUser`가 던진 예외를 페이지가 처리하지 않음, 4단계).
 - `lib/types/api.ts`의 응답 필드명 `datails`는 `details`의 오타다 (4단계, 라우트 래퍼 도입 시).
 - 미션 완료의 보상 유실, 일일 미션 중복 발급, 던전 단일 활성 미보장 (3단계).
+- KPX가 클라우드 IP를 차단한다는 전제는 이전 주소(`openapi.kpx.or.kr`) 기준이다. 새 주소(`apis.data.go.kr`)에서도 그런지는 미확인 — 차단하지 않는다면 홈서버 없이 수집할 방법이 생긴다 (ADR 25).
 - `lib/static-data/weekly-peak-forecast.ts` 데이터가 2026-05-17에 끝나 "오늘의 예상 피크"가 비어 있다 (5단계, KPX `forecastLoad`로 대체 검토).
