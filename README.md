@@ -25,7 +25,7 @@ DR(전력수요반응)을 게이미피케이션으로 풀어낸 토이 프로젝
 - Node.js 22+
 - pnpm 9+
 - Supabase 프로젝트 (Postgres + Auth)
-- 공공데이터포털 API 키 (KPX D1, D2 활용신청 승인 필요)
+- 공공데이터포털 API 키 (전력거래소 "현재전력수급현황", "발전원별 발전량" 활용신청 필요)
 - Vercel 계정 (배포)
 
 ### 2. 클론 및 의존성 설치
@@ -63,28 +63,18 @@ pnpm dev
 
 http://localhost:3000 접속.
 
-### 6. KPX 데이터 적재 (선택)
+### 6. KPX 데이터 적재
 
-KPX 외부 API가 Vercel·GitHub Actions 등 클라우드 IP를 거부하므로, **가정용 회선의 기기**(홈서버 또는 본인 PC)에서 수집 작업을 5분마다 실행합니다. 작업은 KPX를 호출해 DB에 직접 기록하고, 던전 만료 정리와 자동 발령도 함께 처리합니다.
+운영 환경에서는 GitHub Actions(`.github/workflows/collect.yml`)가 5분마다 수집 작업을 실행합니다. 작업은 KPX를 호출해 DB에 직접 기록하고, 던전 만료 정리와 자동 발령도 함께 처리합니다. 레포 Secrets에 `DATABASE_URL`과 `KPX_API_KEY`가 필요합니다.
+
+로컬에서 직접 실행할 수도 있습니다.
 
 ```bash
 pnpm job:collect             # 1회 실행 (.env.local의 DATABASE_URL, KPX_API_KEY 사용)
 pnpm job:collect --dry-run   # KPX만 호출하고 DB에는 쓰지 않음
 ```
 
-5분마다 반복 실행하는 방법:
-
-```powershell
-# Windows — PowerShell 루프
-.\scripts\run-collect-loop.ps1
-```
-
-```cron
-# Linux — crontab (중복 실행 방지를 위해 flock 사용)
-*/5 * * * * cd /path/to/dino-revival && flock -n /tmp/dino-collect.lock pnpm job:collect >> collect.log 2>&1
-```
-
-상세 결정은 `docs/architecture.md`의 "수집 파이프라인" 항목 참조.
+상세 결정은 `docs/architecture.md`의 ADR 24~26 참조.
 
 수집이 15분 넘게 멈추면 메인 화면의 탄소 시계에 "데이터 지연"이 표시됩니다. 스냅샷이 하나도 없으면 `/api/world/state`는 503을 반환하고, 메인 화면은 "데이터 준비 중입니다" 스켈레톤을 표시합니다.
 

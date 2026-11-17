@@ -57,9 +57,9 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 ## 인프라
 
 - Vercel은 호스팅만 맡는다. Vercel Cron과 수집용 API 라우트는 없다.
-- KPX가 클라우드 IP를 차단하므로 수집은 가정용 회선에서 한다. `jobs/collect.ts`(`pnpm job:collect`)가 5분마다 KPX를 호출해 DB에 직접 기록하고 던전 모니터를 실행한다 (ADR 24).
+- 수집은 GitHub Actions가 한다. `.github/workflows/collect.yml`이 5분마다 `jobs/collect.ts`를 실행해 KPX를 호출하고 DB에 직접 기록한 뒤 던전 모니터를 돌린다 (ADR 24·26). Secrets는 `DATABASE_URL`, `KPX_API_KEY`.
 - `jobs/`는 Next와 무관하게 `tsx`로 실행된다. 여기서 import하는 `lib` 코드는 Next 전용 API(`next/headers`, `server-only` 등)에 의존하면 안 된다.
-- 현재 실행기는 개인 PC의 `scripts/run-collect-loop.ps1`이다. 홈서버가 준비되면 crontab으로 옮기고 수집 중단 알림을 붙인다 (미완).
+- GitHub의 schedule은 정시를 보장하지 않는다(지연·건너뜀 가능). 로컬에서는 `pnpm job:collect`로 1회 실행할 수 있고, `--dry-run`을 붙이면 DB에 쓰지 않는다. 이전의 "KPX가 클라우드 IP를 차단한다"는 제약은 새 주소(`apis.data.go.kr`)에는 해당하지 않는다 (ADR 25).
 - 일일 미션은 자정 cron 없이 `/api/missions/today` 접속 시에만 발급된다.
 
 ## 로드맵
@@ -67,7 +67,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 | 단계 | 내용 | 상태 |
 |---|---|---|
 | 0 | 안전망: Vitest, CI, 지침 정리, RLS 마이그레이션 | 완료 |
-| 1 | 수집 이전: `jobs/` 신설, Vercel cron·ingest 제거, 데이터 지연 표시 | 진행 중 (crontab 등록은 홈서버 준비 후) |
+| 1 | 수집 이전: `jobs/` 신설, Vercel cron·ingest 제거, 데이터 지연 표시, GitHub Actions 스케줄 수집 | 완료 |
 | 2 | 구조 전반부: DB 접근을 `lib`으로 모으기(규칙 1), 세션 헬퍼(규칙 3) | 완료 |
 | 3 | DB 정합성: 유니크 제약, increment, 중복 컬럼·캐시 테이블 정리 | |
 | 4 | 구조 후반부: 규칙 2·4·5, 타입·파일 재배치, ADR 정리 | |
@@ -75,18 +75,17 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 
 단계를 마치면 이 표의 상태를 갱신한다.
 
-### 병합 전 확인 사항
+### 남은 확인 사항
 
-1·2단계는 구현과 `pnpm check`·`next build`까지 끝났지만 PR이 아직 병합되지 않았다. 브랜치는 `main ← refactor/phase-1 ← refactor/phase-2` 순서로 쌓여 있고, 1단계 PR을 먼저 병합한다. 아래 확인이 끝나면 이 절을 지운다.
+1·2단계는 `main`에 병합됐다. 아래 확인이 끝나면 이 절을 지운다.
 
-- [x] **1단계 — 수집 스크립트 실제 실행.** 2026-11-17에 확인: 스냅샷 기록 성공, 던전 모니터 실행, KPX 실패 시 fallback과 종료 코드 1까지 동작. 수집은 2026-05-22부터 멈춰 있었고 상시 실행기는 아직 없다(홈서버 준비 후).
 - [ ] **2단계 — 로그인 상태의 화면 확인.** 홈·미션 목록, 미션 완료 → 전투 화면, 통계·리더보드·던전, 프로필의 닉네임 중복 확인, 관리자 패널(던전 발령·종료, 공룡 조정, 미션 재생성). 비로그인 상태의 리다이렉트와 401 응답은 확인했다.
-- [ ] **병합 후** Vercel 환경변수 `CRON_SECRET`, `KPX_API_KEY`, `VERCEL_INGEST_URL`, `SUPABASE_SERVICE_ROLE_KEY` 삭제 (선택).
+- [ ] Vercel 환경변수 `CRON_SECRET`, `KPX_API_KEY`, `VERCEL_INGEST_URL`, `SUPABASE_SERVICE_ROLE_KEY` 삭제 (선택).
 
 ### 3단계 시작 전에 정할 것
 
 - **길드 점수는 누적 점수로 둔다 (2026-11-17 결정).** 시즌제는 5단계의 기능 후보다. 3단계에서는 `guilds.seasonScore`·`leaderboard_cache`를 지우고 길드원 `Dino.totalCleanEnergy`의 합을 쿼리로 계산하며, "시즌"이라는 이름을 정리한다.
-- 3단계는 실제 DB에 되돌리기 어려운 마이그레이션을 적용한다. 1·2단계 병합이 끝난 뒤에 시작한다.
+- 3단계는 실제 DB에 되돌리기 어려운 마이그레이션을 적용한다. 5분마다 수집 작업이 같은 DB에 쓰고 있으므로, 스키마 변경은 이전 코드와 새 코드가 모두 동작하는 순서로 나눠 적용한다.
 
 ### 3단계에서 할 일 (진단 결과)
 
@@ -104,5 +103,4 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 - `/admin`은 비로그인 상태에서 404가 아니라 500을 낸다 (`requireUser`가 던진 예외를 페이지가 처리하지 않음, 4단계).
 - `lib/types/api.ts`의 응답 필드명 `datails`는 `details`의 오타다 (4단계, 라우트 래퍼 도입 시).
 - 미션 완료의 보상 유실, 일일 미션 중복 발급, 던전 단일 활성 미보장 (3단계).
-- KPX가 클라우드 IP를 차단한다는 전제는 이전 주소(`openapi.kpx.or.kr`) 기준이다. 새 주소(`apis.data.go.kr`)에서도 그런지는 미확인 — 차단하지 않는다면 홈서버 없이 수집할 방법이 생긴다 (ADR 25).
 - `lib/static-data/weekly-peak-forecast.ts` 데이터가 2026-05-17에 끝나 "오늘의 예상 피크"가 비어 있다 (5단계, KPX `forecastLoad`로 대체 검토).
