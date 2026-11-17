@@ -13,7 +13,6 @@ export async function seedGuilds(prisma: PrismaClient) {
       create: {
         regionCode: r.code,
         displayName: r.displayName,
-        seasonScore: 0,
       },
       update: {
         displayName: r.displayName,

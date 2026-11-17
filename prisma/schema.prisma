@@ -141,18 +141,14 @@ model Guild {
   /// 표시명 (예: "강남구")
   displayName       String   @db.VarChar(50)
 
-  /// 시즌 점수 (길드원 누적 클린에너지 합계, 캐시값)
-  seasonScore       Int      @default(0)
-
-  /// 마지막 점수 갱신 시각
-  scoreUpdatedAt    DateTime @default(now())
-
   createdAt         DateTime @default(now())
+
+  // 길드 점수는 저장하지 않는다 — 길드원 Dino.totalCleanEnergy 합을 조회 시 계산
+  // (lib/guilds/ranking.ts)
 
   // Relations
   members           User[]
 
-  @@index([seasonScore(sort: Desc)])
   @@map("guilds")
 }
 
@@ -317,7 +313,7 @@ model Dungeon {
 }
 
 // =============================================================================
-// 8. WorldSnapshot — 5분 단위 세계 상태 시계열
+// 8. WorldSnapshot — 세계 상태 시계열 (KPX 5분 단위 값을 20분마다 수집)
 // =============================================================================
 
 model WorldSnapshot {
@@ -336,35 +332,11 @@ model WorldSnapshot {
   /// 현재부하 (MW)
   currentLoad            Int
 
-  /// 외기온도 (°C)
-  temperature            Decimal?  @db.Decimal(4, 1)
-
-  /// 발전믹스 (8개 발전원 MW, JSON)
-  /// { coal, gas, nuclear, hydro, oil, pumped, renewable, coalDomestic }
+  /// 발전믹스 (12개 발전원 MW, JSON). 키는 lib/types/fuel-mix.ts의 FuelMixSchema
   fuelMix                Json
-
-  /// fallback 여부 (직전값 재사용 시 true)
-  isFallback             Boolean   @default(false)
 
   createdAt              DateTime  @default(now())
 
-  @@index([ts(sort: Desc)])
   @@map("world_snapshots")
 }
 
-// =============================================================================
-// 9. LeaderboardCache — 리더보드 캐시 (Phase 2에서 Redis로 이전)
-// =============================================================================
-
-model LeaderboardCache {
-  /// 단일 행 캐시 (id = 'global' 고정)
-  id                     String   @id @default("global")
-
-  /// 전국 길드 랭킹 상위 20 (JSON)
-  /// [{ guildId, displayName, regionCode, seasonScore, rank }, ...]
-  topGuilds              Json
-
-  updatedAt              DateTime @updatedAt
-
-  @@map("leaderboard_cache")
-}

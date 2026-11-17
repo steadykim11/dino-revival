@@ -12,7 +12,6 @@ export type WorldSnapshotData = {
   supplyReserveRate: number; // %
   supplyCapacity: number; // MW
   currentLoad: number; // MW
-  temperature: number | null; // °C (응답에 없으면 null)
   fuelMix: FuelMix;
 };
 
@@ -41,7 +40,6 @@ export interface WorldStateResponse {
     supplyReserveRate: number;
     supplyCapacity: number;
     currentLoad: number;
-    temperature: number | null;
     fuelMix: FuelMix; // 12종, MW (양수충전 시 pumped 음수 가능)
     fuelMixPercent: FuelMix; // 12종, 0~1. 분모는 mw>0 항목 합
     battlefield: Battlefield;

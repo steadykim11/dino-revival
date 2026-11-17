@@ -119,8 +119,6 @@ export async function readWorldState(): Promise<WorldStateResponse | null> {
       supplyReserveRate: toNum(snapshot.supplyReserveRate),
       supplyCapacity: snapshot.supplyCapacity,
       currentLoad: snapshot.currentLoad,
-      temperature:
-        snapshot.temperature === null ? null : toNum(snapshot.temperature),
       fuelMix,
       fuelMixPercent,
       battlefield,

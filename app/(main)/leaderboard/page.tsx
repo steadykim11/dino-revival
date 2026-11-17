@@ -4,7 +4,7 @@
 // searchParam ?tab=local|global 로 전환. URL 보존.
 //
 // 데이터는 서버에서 lib/guilds/score 직접 호출 (API self-loopback 회피).
-// 첫 진입 fetch만 — 폴링 없음 (점수 캐시 5분 TTL이라 의미 약함).
+// 첫 진입 fetch만 — 폴링 없음.
 
 import { requireSession } from "@/lib/auth/session.server";
 import { getLeaderboard, getGuildDetail } from "@/lib/guilds/score.server";
@@ -35,7 +35,7 @@ export default async function LeaderboardPage({ searchParams }: PageProps) {
   const myGuildHeader = guildDetail
     ? {
         displayName: guildDetail.guild.displayName,
-        seasonScore: guildDetail.guild.seasonScore,
+        score: guildDetail.guild.score,
         rank: guildDetail.guild.rank,
         memberCount: guildDetail.guild.memberCount,
       }
@@ -52,9 +52,9 @@ export default async function LeaderboardPage({ searchParams }: PageProps) {
           </h1>
           <div className="mt-3 flex items-end justify-between">
             <div>
-              <p className="text-xs text-stone-500">시즌 점수</p>
+              <p className="text-xs text-stone-500">길드 점수</p>
               <p className="text-xl font-bold tabular-nums text-amber-700">
-                {myGuildHeader.seasonScore.toLocaleString()}
+                {myGuildHeader.score.toLocaleString()}
               </p>
             </div>
             <div className="text-right">

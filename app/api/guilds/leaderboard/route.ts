@@ -1,6 +1,6 @@
 // GET /api/guilds/leaderboard — 전국 길드 순위
 //
-// 캐시: 5분 TTL (LeaderboardCache.id='global')
+// 조회할 때마다 계산한다 (캐시 없음)
 // 응답: 길드 전체 (현재 15개) 순위 desc
 
 import { NextResponse } from "next/server";

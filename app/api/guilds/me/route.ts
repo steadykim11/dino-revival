@@ -1,7 +1,7 @@
 // GET /api/guilds/me — 내 길드 상세 + 길드원 리스트
 //
 // 응답:
-// - guild: { id, regionCode, displayName, seasonScore, rank(전국 순위), memberCount }
+// - guild: { id, regionCode, displayName, score, rank(전국 순위), memberCount }
 // - members: [{ userId, nickname, cleanEnergy, isDummy }] (점수 desc)
 // - me: { userId, nickname, cleanEnergy, rankInGuild } (UI 본인 강조용)
 

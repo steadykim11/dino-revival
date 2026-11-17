@@ -43,8 +43,6 @@ export async function captureWorldSnapshot(): Promise<WriteResult> {
     supplyReserveRate: new Prisma.Decimal(data.supplyReserveRate),
     supplyCapacity: data.supplyCapacity,
     currentLoad: data.currentLoad,
-    temperature:
-      data.temperature !== null ? new Prisma.Decimal(data.temperature) : null,
     fuelMix: data.fuelMix as unknown as Prisma.InputJsonValue,
   };
 

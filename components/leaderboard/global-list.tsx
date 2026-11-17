@@ -1,6 +1,6 @@
 // 전국 탭 — 길드 순위. 본인 길드 강조.
 
-import type { GuildRanking } from "@/lib/guilds/score.server";
+import type { GuildRanking } from "@/lib/guilds/ranking";
 
 interface GlobalListProps {
   rankings: GuildRanking[];
@@ -45,7 +45,7 @@ export function GlobalList({ rankings, myGuildId }: GlobalListProps) {
               </p>
             </div>
             <span className="text-sm font-semibold tabular-nums text-amber-700">
-              {r.seasonScore.toLocaleString()}
+              {r.score.toLocaleString()}
             </span>
           </li>
         );
