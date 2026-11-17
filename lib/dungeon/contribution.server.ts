@@ -31,7 +31,7 @@ export async function getGuildContribution(
     }),
     prisma.dungeon.findUnique({
       where: { id: dungeonId },
-      select: { id: true, activatedAt: true, expiresAt: true },
+      select: { id: true },
     }),
   ]);
 
@@ -44,18 +44,10 @@ export async function getGuildContribution(
   });
   const totalMembers = members.length;
 
-  // 3) 본인 실제 던전 미션 로그 (이 던전 기간 내 던전 미션 완료분)
-  // dungeonId가 MissionLog에 컬럼으로 없으므로 missionType + 시각으로 필터.
-  // 던전 기간을 벗어나 완료된 던전 미션은 다른 던전의 잔여일 수 있음 — 정확도보다 단순함.
+  // 3) 본인이 이 던전의 미션을 완료한 기록.
+  // 던전 종료 뒤 자정까지 완료한 것도 이 던전의 기여로 센다.
   const myLogs = await prisma.missionLog.findMany({
-    where: {
-      userId,
-      missionType: "DUNGEON",
-      completedAt: {
-        gte: dungeon.activatedAt,
-        lte: dungeon.expiresAt,
-      },
-    },
+    where: { userId, dungeonId: dungeon.id },
     select: { cleanEnergyEarned: true },
   });
   const myContributedMissions = myLogs.length;

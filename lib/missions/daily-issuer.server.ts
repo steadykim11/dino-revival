@@ -1,5 +1,5 @@
 // 한 사용자에게 오늘자 Mission 3개를 DB에 발급
-// - 이미 오늘자 미션이 있으면 skip (idempotent)
+// - 이미 오늘자 미션이 있으면 skip (idempotent). 동시 요청의 중복 발급은 DB 유니크 제약이 막는다
 // - 직전일(어제) Mission을 조회해 풀 회피 기준으로 사용
 // - selectDailyMissions로 풀 선정 후 Mission 레코드 3개 createMany
 
@@ -74,17 +74,30 @@ export async function issueDailyMissions(
       previousPoolIds: yesterdayMissions.map((m) => m.poolId),
     });
 
-    // 4) Mission 3개 createMany (트랜잭션 불필요 — createMany 자체가 원자적)
+    // 4) 슬롯 0·1·2(DAY·EVENING·ANYTIME)로 발급.
+    // (userId, assignedDate, type, slot) 유니크 제약이 중복을 막는다. 동시에 들어온
+    // 다른 요청이 먼저 발급했으면 해당 슬롯은 건너뛴다 (skipDuplicates).
     const created = await prisma.mission.createManyAndReturn({
-      data: selectedPoolIds.map((poolId) => ({
+      data: selectedPoolIds.map((poolId, slot) => ({
         userId,
         poolId,
         type: "DAILY" as const,
         assignedDate,
         expiresAt,
+        slot,
       })),
+      skipDuplicates: true,
       select: { id: true },
     });
+
+    if (created.length === 0) {
+      // 다른 요청이 세 슬롯을 모두 먼저 채웠다
+      const now3 = await prisma.mission.findMany({
+        where: { userId, assignedDate, type: "DAILY" },
+        select: { id: true },
+      });
+      return { userId, status: "skipped", missionIds: now3.map((m) => m.id) };
+    }
 
     return { userId, status: "issued", missionIds: created.map((m) => m.id) };
   } catch (err) {

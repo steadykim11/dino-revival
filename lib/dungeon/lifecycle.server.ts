@@ -1,6 +1,6 @@
 // 던전 라이프사이클 SSoT
 //
-// - 단일 활성 보장은 애플리케이션 레이어. activate 시 이미 활성이면 그걸 반환 (idempotent).
+// - 단일 활성은 DB 부분 유니크 인덱스가 보장. activate 시 이미 활성이면 그걸 반환 (idempotent).
 // - 만료 = activatedAt + 60분 (요약본).
 // - 자동 cron 미사용 (결정 3-B). 만료는 lazy + activate 시 sweep으로 충분.
 // - 발령 시 활성 사용자에게 던전 미션 일괄 발급 (issueDungeonMissions 호출).
@@ -67,33 +67,52 @@ export async function activateDungeon(
 ): Promise<ActivateResult> {
   const now = params.now ?? new Date();
 
-  // 트랜잭션 — sweep + 활성 확인 + 생성을 원자적으로.
-  // 동시 호출(관리자 더블 클릭 등) 시 한쪽만 created=true.
-  return prisma.$transaction(async (tx) => {
-    await sweepExpiredDungeons(now, tx);
+  // sweep + 활성 확인 + 생성을 한 트랜잭션으로 묶는다.
+  // 단일 활성은 DB의 부분 유니크 인덱스(dungeons_single_active)가 보장한다.
+  // 동시 호출(관리자 더블 클릭 등)로 둘 다 "활성 없음"을 보고 생성을 시도하면
+  // 늦은 쪽은 유니크 위반(P2002)으로 실패하고, 아래에서 먼저 만들어진 던전을 돌려준다.
+  try {
+    return await createIfNoneActive();
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+    const existing = await getCurrentActiveDungeon(now);
+    if (!existing) throw err;
+    return { dungeon: existing, created: false };
+  }
 
-    const existing = await getCurrentActiveDungeon(now, tx);
-    if (existing) {
-      return { dungeon: existing, created: false };
-    }
+  function createIfNoneActive(): Promise<ActivateResult> {
+    return prisma.$transaction(async (tx) => {
+      await sweepExpiredDungeons(now, tx);
 
-    const expiresAt = new Date(
-      now.getTime() + DUNGEON_DURATION_MIN * 60 * 1000,
-    );
+      const existing = await getCurrentActiveDungeon(now, tx);
+      if (existing) {
+        return { dungeon: existing, created: false };
+      }
 
-    const dungeon = await tx.dungeon.create({
-      data: {
-        triggerReason: params.reason,
-        isActive: true,
-        activatedAt: now,
-        expiresAt,
-        triggerReserveRate: params.triggerReserveRate ?? null,
-        triggerCarbonIntensity: params.triggerCarbonIntensity ?? null,
-      },
+      const expiresAt = new Date(
+        now.getTime() + DUNGEON_DURATION_MIN * 60 * 1000,
+      );
+
+      const dungeon = await tx.dungeon.create({
+        data: {
+          triggerReason: params.reason,
+          isActive: true,
+          activatedAt: now,
+          expiresAt,
+          triggerReserveRate: params.triggerReserveRate ?? null,
+          triggerCarbonIntensity: params.triggerCarbonIntensity ?? null,
+        },
+      });
+
+      return { dungeon, created: true };
     });
+  }
+}
 
-    return { dungeon, created: true };
-  });
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" && err !== null && "code" in err && err.code === "P2002"
+  );
 }
 
 /**

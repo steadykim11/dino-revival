@@ -4,7 +4,7 @@
 // 1. Mission.completedAt 갱신 (이미 완료면 ALREADY_COMPLETED)
 // 2. 최신 WorldSnapshot에서 carbonIntensity 캡처
 // 3. 보상 계산 (reward-calculator)
-// 4. Dino.totalCleanEnergy / intimacy / totalCo2Reduced 갱신
+// 4. Dino 행 잠금 후 totalCleanEnergy / intimacy / totalCo2Reduced 갱신
 // 5. 진화 체크 (EGG→HATCHLING, HATCHLING→ADULT) — D14 추가
 // 6. MissionLog 영구 기록 (stageBefore/stageAfter 포함 — D14 추가)
 //
@@ -87,7 +87,10 @@ export async function completeMission(
       return { ok: false, reason: "EXPIRED" } as const;
     }
 
-    // Dino 조회
+    // Dino 행을 잠근 뒤 조회한다.
+    // 누적값(클린에너지·친밀도)을 읽고 계산해서 다시 쓰므로, 같은 사용자의 미션 두 개가
+    // 동시에 완료되면 잠금 없이는 한쪽 보상이 덮어써져 사라진다.
+    await tx.$queryRaw`SELECT 1 FROM "dinos" WHERE "userId" = ${userId}::uuid FOR UPDATE`;
     const dino = await tx.dino.findUnique({ where: { userId } });
     if (!dino) {
       return { ok: false, reason: "DINO_NOT_FOUND" } as const;
@@ -148,6 +151,7 @@ export async function completeMission(
       data: {
         userId,
         missionId,
+        dungeonId: mission.dungeonId,
         missionTitle: mission.pool.title,
         missionType: mission.type,
         missionCategory: mission.pool.category,

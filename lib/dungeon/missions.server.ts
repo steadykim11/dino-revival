@@ -111,6 +111,10 @@ export async function issueDungeonMissions(
     }
   }
 
-  const result = await prisma.mission.createMany({ data: rows });
+  // (userId, dungeonId, poolId) 유니크 — 동시 호출로 겹친 행은 건너뛴다
+  const result = await prisma.mission.createMany({
+    data: rows,
+    skipDuplicates: true,
+  });
   return result.count;
 }

@@ -39,6 +39,11 @@ enum MissionTimeSlot {
   ANYTIME     // 종일
 }
 
+enum DungeonTriggerReason {
+  auto        // 예비율 기준 자동 발령
+  manual      // 관리자 수동 발령
+}
+
 enum MissionCategory {
   COOLING     // 냉방
   HEATING     // 난방
@@ -206,6 +211,10 @@ model Mission {
   dungeonId         String?      @db.Uuid
   dungeon           Dungeon?     @relation(fields: [dungeonId], references: [id], onDelete: SetNull)
 
+  /// 일일 미션의 슬롯 (0=DAY, 1=EVENING, 2=ANYTIME). 던전 미션은 NULL.
+  /// (userId, assignedDate, type, slot) 유니크로 같은 날 중복 발급을 막는다.
+  slot              Int?         @db.SmallInt
+
   /// 할당일 (자정 기준, 인덱스용)
   assignedDate      DateTime     @db.Date
 
@@ -217,6 +226,12 @@ model Mission {
 
   createdAt         DateTime     @default(now())
 
+  /// 완료 기록 (완료 전이면 없음)
+  log               MissionLog?
+
+  @@unique([userId, assignedDate, type, slot])
+  /// 같은 던전의 같은 미션을 한 사용자에게 두 번 발급하지 않는다
+  @@unique([userId, dungeonId, poolId])
   @@index([userId, assignedDate])
   @@index([userId, completedAt])
   @@index([dungeonId])
@@ -234,7 +249,14 @@ model MissionLog {
   userId                      String       @db.Uuid
   user                        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  missionId                   String       @db.Uuid
+  /// 완료한 Mission. 미션 행이 삭제되면 NULL (기록은 남는다). 시드 더미 로그도 NULL.
+  /// 유니크 — 한 미션은 한 번만 완료 기록된다.
+  missionId                   String?      @unique @db.Uuid
+  mission                     Mission?     @relation(fields: [missionId], references: [id], onDelete: SetNull)
+
+  /// 던전 미션이면 해당 던전 (기여도 집계용)
+  dungeonId                   String?      @db.Uuid
+  dungeon                     Dungeon?     @relation(fields: [dungeonId], references: [id], onDelete: SetNull)
 
   /// 완료 당시 미션 정보 스냅샷
   missionTitle                String       @db.VarChar(100)
@@ -257,6 +279,7 @@ model MissionLog {
   stageAfter                  DinoStage
 
   @@index([userId, completedAt])
+  @@index([dungeonId])
   @@map("mission_logs")
 }
 
@@ -267,10 +290,11 @@ model MissionLog {
 model Dungeon {
   id                     String       @id @default(uuid()) @db.Uuid
 
-  /// 트리거 사유: "auto" (예비율 < 10%) | "manual" (관리자 수동)
-  triggerReason          String       @db.VarChar(20)
+  /// 트리거 사유
+  triggerReason          DungeonTriggerReason
 
-  /// 활성화 여부 (단일 활성 보장은 애플리케이션 레이어)
+  /// 활성화 여부. 활성 던전은 동시에 하나만 — 부분 유니크 인덱스
+  /// dungeons_single_active (마이그레이션 SQL에만 있음, Prisma 스키마로 표현 불가)
   isActive               Boolean      @default(true)
 
   activatedAt            DateTime     @default(now())
@@ -285,6 +309,7 @@ model Dungeon {
 
   // Relations
   missions               Mission[]
+  missionLogs            MissionLog[]
 
   @@index([isActive])
   @@index([expiresAt])

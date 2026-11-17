@@ -167,7 +167,8 @@ function daysAgo(reference: Date, days: number): Date {
 // 과거 MissionLog 생성
 interface MissionLogSeed {
   userId: string;
-  missionId: string;
+  /** 더미 로그는 실제 Mission 행이 없다 */
+  missionId: null;
   missionTitle: string;
   missionType: MissionType;
   missionCategory: MissionCategory;
@@ -223,7 +224,7 @@ function generateMissionLogs(
 
     logs.push({
       userId,
-      missionId: picked.id, // 실제 MissionPool ID 사용 — Mission row와는 무관하지만 추적 가능
+      missionId: null,
       missionTitle: picked.title,
       missionType: "DAILY",
       missionCategory: picked.category,
