@@ -66,7 +66,7 @@
 
 ---
 
-## 5. /api/world/state — Public + 5초 HTTP 캐시
+## 5. /api/world/state — Public + 5초 HTTP 캐시 (폴링 방식은 ADR 31로 변경)
 
 **결정**: `GET /api/world/state`는 인증 없음(Public). 응답에 `Cache-Control: public, max-age=5, s-maxage=5, stale-while-revalidate=10` 헤더.
 
@@ -838,3 +838,37 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 - 검증 오류의 순서가 바뀐 곳이 있다. `PUT /api/me/dino`는 프로필 확인보다 본문 검증이 먼저다.
 - 래퍼는 `redirect()`·`notFound()` 같은 Next 내부 신호를 가로채지 않는다 (`unstable_rethrow`).
+
+---
+
+## 31. 월드 상태 Provider — 서버가 첫 값, Provider 하나가 폴링 (4단계 B)
+
+**결정**: 홈 화면의 월드 상태를 `WorldStateProvider` 하나로 모은다.
+
+- 첫 값은 서버 컴포넌트(홈 페이지)가 `readWorldState()`로 읽어 props로 넘긴다. 로딩 화면 없이 바로 그린다.
+- 이후에는 Provider만 `/api/world/state`를 30초마다 읽는다. 탭이 보이지 않으면 멈추고, 다시 보이면 즉시 한 번 읽는다. 폴링 로직은 React 밖의 `lib/world/state-poller.ts`.
+- 탄소 시계·던전 배너·미션 영역은 `useWorldState()`로 받는다.
+- 미들웨어는 `/api/world/state`와 `/api/health`에서 실행하지 않는다.
+
+**이유**:
+
+- 홈 화면에서 같은 API를 폴러 3개가 각각 5초마다 불렀다 (`useWorldState`를 두 컴포넌트가 따로 호출 + 던전 배너의 자체 폴링). 데이터는 20분마다 바뀐다.
+- 던전 배너는 `if (!cancelled) return;`으로 조건이 반대여서, 받은 응답을 한 번도 화면에 반영하지 못했다. 개발 모드에서는 StrictMode의 이중 실행 때문에 우연히 한 번 보였다. 자체 폴링을 없애면서 함께 해결된다.
+- 미들웨어가 폴링 요청마다 Supabase Auth를 호출했다. 이 API는 세션과 무관하다.
+- 30초인 이유: 수집 주기(20분)보다 훨씬 짧게 두는 것은 던전 때문이다. 던전은 관리자가 언제든 발령할 수 있고 60분간 지속되므로, 배너가 최대 30초 늦게 뜨는 것은 받아들일 만하다.
+
+**세부 결정**:
+
+- 남은 시간은 서버가 준 `remainingSec`에서 "응답을 받은 뒤 흐른 시간"을 빼서 계산한다 (`lib/time/countdown.ts`). 만료 시각과 기기 시계를 직접 비교하면 기기 시계가 틀린 사용자에게 잘못 보인다.
+- 서버가 그린 HTML과 브라우저의 첫 렌더링이 같아야 하므로, 서버 시각을 `initialNowMs`로 함께 넘기고 화면에 붙기 전에는 그 값을 "현재"로 쓴다 (`useNow`).
+- Provider는 `(main)` 레이아웃이 아니라 홈 페이지에 둔다. 월드 상태를 쓰는 화면이 홈뿐이라, 다른 페이지에서까지 폴링할 이유가 없다.
+
+**대안**:
+
+- SWR·TanStack Query 도입 — 폴링 대상이 API 하나뿐이라 의존성을 늘릴 만하지 않다.
+- 서버 전송 이벤트(SSE)·웹소켓 — Vercel 서버리스와 맞지 않고 규모에 과하다.
+
+**후속**:
+
+- 브라우저 테스트 환경이 없어 effect(폴링 시작·중지, 1초 갱신)는 자동 테스트로 확인하지 못한다. 폴러와 카운트다운 계산은 단위 테스트로, 첫 렌더링 결과는 `renderToString` 테스트로 검사한다.
+- 던전 페이지(`dungeon-page-client`)의 카운트다운은 여전히 자체 타이머다. 진입 시 서버가 준 값에서 시작하므로 그대로 둔다.

@@ -28,6 +28,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 - 구현 후 `pnpm check`를 통과시키고, 사용자가 검토한 뒤에 커밋한다. 커밋·푸시는 요청받았을 때만 한다.
 - 리팩터링과 동작 변경을 한 커밋에 섞지 않는다. 범위 밖에서 발견한 문제는 고치지 말고 보고한다.
 - 새 로직은 순수 함수로 분리해 테스트와 함께 추가한다. 테스트 파일은 대상 옆에 `*.test.ts`로 둔다.
+- 브라우저 테스트 환경(jsdom 등)은 없다. 컴포넌트는 `renderToString`으로 첫 렌더링 결과만 검사하고(`*.test.tsx`), 타이머·폴링 같은 로직은 React 밖의 모듈로 빼서 가짜 타이머로 검사한다 (예: `lib/world/state-poller.ts`).
 - 마이그레이션은 `prisma/migrations.test.ts`가 메모리 Postgres(PGlite)에서 실제로 실행해 검증한다. 기존 데이터를 바꾸거나 제약을 추가하는 마이그레이션은 여기에 검증을 덧붙인다.
 - 결정 사항은 `docs/architecture.md`(ADR)에 기록한다. 기존 결정을 뒤집을 때도 이유를 남긴다.
 
@@ -39,7 +40,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 2. **읽기는 서버 컴포넌트가 `lib`을 직접 호출, 쓰기는 Route Handler.** 자기 화면만 쓰는 GET 라우트를 새로 만들지 않는다. (쓰기를 Route Handler로 두는 이유는 ADR 10.)
 3. **세션 확인은 헬퍼로.** 페이지·레이아웃은 `lib/auth/session.server.ts`의 `requireSession`/`getSession`/`getAuthUser`를 쓴다. Route Handler는 래퍼(규칙 4)가 대신 확인한다. `supabase.auth.getUser()`를 직접 부르지 않는다.
 4. **모든 Route Handler는 `lib/http/route.ts`의 `route()`로 감싼다.** `route({ auth: "public" | "user" | "admin", body: zodSchema }, async ({ req, user, body }) => ...)`. 인증·JSON 파싱·zod 검증·예외 처리를 라우트에서 손으로 쓰지 않는다. 도메인 오류는 `errorResponse(code, message, status)`로 돌려준다. 에러 응답 형식은 `{ error: { code, message, details? } }`.
-5. **월드 상태 폴링은 Provider 하나로.** 컴포넌트가 각자 `/api/world/state`를 폴링하지 않는다.
+5. **월드 상태는 `WorldStateProvider` 하나로.** 첫 값은 서버 컴포넌트가 `readWorldState()`로 읽어 넘기고, 이후 갱신은 Provider만 `/api/world/state`를 폴링한다(30초). 컴포넌트는 `useWorldState()`로 받고 직접 폴링하지 않는다. 시간에 따라 바뀌는 표시는 `useNow()`를 쓴다 — 서버와 브라우저의 첫 렌더링 결과가 같아야 한다.
 
 그 밖에:
 
@@ -72,7 +73,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 | 1 | 수집 이전: `jobs/` 신설, Vercel cron·ingest 제거, 데이터 지연 표시, GitHub Actions 스케줄 수집 | 완료 |
 | 2 | 구조 전반부: DB 접근을 `lib`으로 모으기(규칙 1), 세션 헬퍼(규칙 3) | 완료 |
 | 3 | DB 정합성: 유니크 제약, 행 잠금, 중복 컬럼·캐시 테이블 정리 | 완료 (운영 DB 적용 확인 2026-11-17) |
-| 4 | 구조 후반부: 규칙 2·4·5, 타입·파일 재배치, ADR 정리 | 4-A(라우트 래퍼) 구현 완료. 4-B(월드 상태 Provider·배너 버그·폴링), 4-C(GET 라우트를 서버 컴포넌트로), 4-D(타입·파일 재배치, ADR 번호) 남음 |
+| 4 | 구조 후반부: 규칙 2·4·5, 타입·파일 재배치, ADR 정리 | 4-A(라우트 래퍼) 완료. 4-B(월드 상태 Provider·배너 버그·폴링) 구현 완료. 4-C(GET 라우트를 서버 컴포넌트로), 4-D(타입·파일 재배치, ADR 번호) 남음 |
 | 5 | 기능 추가 | |
 
 단계를 마치면 이 표의 상태를 갱신한다.
@@ -95,5 +96,4 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 
 ## 알려진 문제 (해당 단계에서 수정)
 
-- `components/dungeon/dungeon-banner.tsx`의 `if (!cancelled) return;` 조건이 반대라 배너가 갱신되지 않는다 (4단계, Provider 도입 시).
 - `lib/static-data/weekly-peak-forecast.ts` 데이터가 2026-05-17에 끝나 "오늘의 예상 피크"가 비어 있다 (5단계, KPX `forecastLoad`로 대체 검토).

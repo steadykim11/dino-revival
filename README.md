@@ -108,7 +108,7 @@ lib/
   dungeon/        # 던전 도메인
   guilds/         # 길드 도메인
   static-data/    # 정적 자료 (배출계수, 주간 피크 전망 등)
-  hooks/          # React 클라이언트 훅
+  http/           # Route Handler 래퍼·에러 응답
   types/          # 도메인 타입
   time/           # KST 시간 유틸
   profile/        # 닉네임/동네 변경 쿨다운 상태
