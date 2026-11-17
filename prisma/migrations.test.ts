@@ -69,7 +69,6 @@ describe("전체 마이그레이션", () => {
       "dinos",
       "dungeons",
       "guilds",
-      "leaderboard_cache",
       "mission_logs",
       "mission_pool",
       "missions",
@@ -306,5 +305,94 @@ describe("20261117000000_integrity_constraints", () => {
       );
       expect(result).toEqual([{ missionId: null }]);
     });
+  });
+});
+
+describe("20261117010000_drop_redundant_columns", () => {
+  const TARGET = "20261117010000_drop_redundant_columns";
+  const SNAPSHOT_TS = "2026-11-17T06:35:00.000Z";
+  let db: PGlite;
+
+  const columns = async (table: string) =>
+    (
+      await rows<{ column_name: string }>(
+        db,
+        `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '${table}' ORDER BY 1`,
+      )
+    ).map((c) => c.column_name);
+
+  beforeAll(async () => {
+    db = new PGlite();
+    await applyUntil(db, TARGET);
+
+    // 삭제 전 형태의 데이터
+    await db.exec(`
+      INSERT INTO "guilds" ("id", "regionCode", "displayName", "seasonScore")
+        VALUES ('${GUILD}', '11680', '강남구', 350);
+      INSERT INTO "leaderboard_cache" ("id", "topGuilds", "updatedAt")
+        VALUES ('global', '[]', now());
+      INSERT INTO "world_snapshots" ("ts", "carbonIntensity", "supplyReserveRate", "supplyCapacity", "currentLoad", "fuelMix")
+        VALUES ('${SNAPSHOT_TS}', 461.72, 33.25, 97002, 72796, '{"coal": 29249.1}');
+    `);
+
+    await apply(db, TARGET);
+  }, 60_000);
+
+  it("leaderboard_cache 테이블을 지운다", async () => {
+    const tables = await rows<{ tablename: string }>(
+      db,
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'leaderboard_cache'`,
+    );
+    expect(tables).toEqual([]);
+  });
+
+  it("guilds에서 점수 사본 컬럼만 지우고 행은 그대로 둔다", async () => {
+    expect(await columns("guilds")).toEqual([
+      "createdAt",
+      "displayName",
+      "id",
+      "regionCode",
+    ]);
+    expect(
+      await rows(db, `SELECT "id", "regionCode", "displayName" FROM "guilds"`),
+    ).toEqual([{ id: GUILD, regionCode: "11680", displayName: "강남구" }]);
+  });
+
+  it("world_snapshots에서 isFallback·temperature만 지우고 수집 데이터는 그대로 둔다", async () => {
+    expect(await columns("world_snapshots")).toEqual([
+      "carbonIntensity",
+      "createdAt",
+      "currentLoad",
+      "fuelMix",
+      "supplyCapacity",
+      "supplyReserveRate",
+      "ts",
+    ]);
+    const result = await rows<{
+      carbonIntensity: string;
+      currentLoad: number;
+      fuelMix: { coal: number };
+    }>(
+      db,
+      `SELECT "carbonIntensity", "currentLoad", "fuelMix" FROM "world_snapshots"`,
+    );
+    expect(result).toEqual([
+      { carbonIntensity: "461.72", currentLoad: 72796, fuelMix: { coal: 29249.1 } },
+    ]);
+  });
+
+  it("ts의 중복 인덱스는 지우고 PK는 남긴다 — 같은 ts는 여전히 거부", async () => {
+    const indexes = await rows<{ indexname: string }>(
+      db,
+      `SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'world_snapshots' ORDER BY 1`,
+    );
+    expect(indexes).toEqual([{ indexname: "world_snapshots_pkey" }]);
+
+    await expect(
+      db.exec(`
+        INSERT INTO "world_snapshots" ("ts", "carbonIntensity", "supplyReserveRate", "supplyCapacity", "currentLoad", "fuelMix")
+        VALUES ('${SNAPSHOT_TS}', 1, 1, 1, 1, '{}')
+      `),
+    ).rejects.toThrow(/world_snapshots_pkey/);
   });
 });
