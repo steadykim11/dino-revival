@@ -549,7 +549,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 16. 길드 점수 — Dino.totalCleanEnergy 합산 + 5분 Lazy 캐시
+## 16. 길드 점수 — Dino.totalCleanEnergy 합산 + 5분 Lazy 캐시 (캐시는 ADR 29로 폐기)
 
 **결정**: 길드 시즌 점수는 `Dino.totalCleanEnergy` 합산으로 계산. 리더보드 조회 시 read-through 5분 캐시 (`LeaderboardCache` 단일 행, `id='global'`). 캐시 stale 시 재계산 + `Guild.seasonScore` 컬럼도 동기화. 길드원 리스트는 점수 desc 정렬, 본인 강조는 UI 책임.
 
@@ -780,3 +780,32 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 - 배포 순서: Vercel 빌드가 마이그레이션을 먼저 적용하고 새 코드가 뒤따른다. 그 사이 이전 코드가 던전을 발령하면 enum 타입 불일치로 실패할 수 있다 (관리자 수동 발령뿐이라 영향 없음).
 - 마이그레이션 SQL은 `prisma/migrations.test.ts`가 PGlite(메모리 Postgres)에서 실행해 검증한다. 마이그레이션 이전 형태의 데이터(더미 로그, 단일 활성 위반 던전 등)를 넣고 적용한 뒤 결과와 제약을 확인한다. 로컬 Postgres나 Docker 없이 `pnpm test`만으로 돌아간다.
 - `users.regionCode`는 `guildId`와 중복이지만 남긴다. 한 지역에 길드 여러 개를 두는 기능을 염두에 둔 결정이다.
+
+---
+
+## 29. 중복 컬럼·캐시 테이블 삭제 (3단계 B, ADR 16의 캐시 폐기)
+
+**결정**: 다른 데이터에서 다시 계산할 수 있는 사본과 쓰지 않는 컬럼을 지운다. 마이그레이션 `20261117010000_drop_redundant_columns`.
+
+- `leaderboard_cache` 테이블, `guilds.seasonScore`·`scoreUpdatedAt` 삭제. 길드 점수는 조회할 때마다 길드원 `Dino.totalCleanEnergy`의 합으로 계산한다. 계산은 순수 함수 `lib/guilds/ranking.ts`로 분리. 화면의 "시즌 점수"는 "길드 점수"로 바꾼다.
+- `world_snapshots.isFallback`·`temperature` 삭제, PK와 중복인 `ts` 인덱스 삭제.
+- `users.regionCode`는 남긴다.
+
+**이유**:
+
+- 길드 점수가 세 곳(`Dino` 합계, `guilds.seasonScore`, `leaderboard_cache`의 JSON)에 있었다. 캐시가 만료될 때만 사본이 갱신돼, 그 사이에는 화면마다 다른 값을 볼 수 있었다. 길드 15개·사용자 수십 명 규모에서 집계는 쿼리 한 번이라 캐시가 필요 없다.
+- "시즌 점수"라는 이름과 달리 시즌 개념(기간, 초기화)이 스키마에 없었다. 누적 점수로 두기로 하고 이름을 맞췄다. 시즌제는 기능 추가 단계의 후보.
+- `isFallback`은 한 번도 true로 기록된 적이 없고, 지연 여부는 읽는 시점에 판정한다 (ADR 24). `temperature`는 수집한 적이 없다.
+- `ts`는 PK라 이미 인덱스가 있고, B-tree는 양방향으로 읽으므로 DESC 인덱스가 따로 필요 없다.
+- `users.regionCode`는 지금은 `guildId`와 중복이지만(지역과 길드가 1:1), 한 지역에 길드 여러 개를 두는 기능을 염두에 두고 남긴다.
+
+**대안**:
+
+- 캐시를 남기고 미션 완료 시 무효화 — 쓰기 경로가 복잡해지고, 지금 규모에서는 얻는 것이 없다.
+- 사용자가 늘어 집계가 느려지면 그때 `guilds`에 점수 컬럼을 두고 미션 완료 트랜잭션에서 `increment`한다.
+
+**후속**:
+
+- 적용 전 운영 DB 확인: 저장된 길드 점수가 15개 길드 모두 계산값과 일치, `isFallback`은 전 행 false, `temperature`는 전 행 NULL. 지워지는 값 중 다시 만들 수 없는 것은 없다.
+- 배포는 두 번에 나눈다. 필드를 뺀 코드를 먼저 배포하고, 그 뒤에 삭제 마이그레이션을 올린다. 이전 코드의 Prisma 클라이언트가 모든 컬럼을 SELECT하기 때문이다. 컬럼을 지우는 변경은 앞으로도 이 순서를 따른다.
+- 한 지역에 길드 여러 개를 두려면 `guilds.regionCode`의 유니크 제약을 풀어야 한다.
