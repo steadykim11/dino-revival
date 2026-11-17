@@ -15,7 +15,7 @@ DR(전력수요반응) 게이미피케이션 토이 프로젝트. 한국 전력�
 pnpm check        # typecheck + lint + test — 변경 후 항상 실행
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # eslint .
-pnpm test         # vitest run (DB·외부 API 호출 없음)
+pnpm test         # vitest run (운영 DB·외부 API 호출 없음. 마이그레이션은 메모리 Postgres로 검증)
 pnpm dev          # 개발 서버
 pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 ```
@@ -28,6 +28,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 - 구현 후 `pnpm check`를 통과시키고, 사용자가 검토한 뒤에 커밋한다. 커밋·푸시는 요청받았을 때만 한다.
 - 리팩터링과 동작 변경을 한 커밋에 섞지 않는다. 범위 밖에서 발견한 문제는 고치지 말고 보고한다.
 - 새 로직은 순수 함수로 분리해 테스트와 함께 추가한다. 테스트 파일은 대상 옆에 `*.test.ts`로 둔다.
+- 마이그레이션은 `prisma/migrations.test.ts`가 메모리 Postgres(PGlite)에서 실제로 실행해 검증한다. 기존 데이터를 바꾸거나 제약을 추가하는 마이그레이션은 여기에 검증을 덧붙인다.
 - 결정 사항은 `docs/architecture.md`(ADR)에 기록한다. 기존 결정을 뒤집을 때도 이유를 남긴다.
 
 ## 구조 규칙
@@ -51,7 +52,8 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 - 스키마 변경은 Prisma 마이그레이션으로만 한다. Supabase 대시보드에서 직접 고치지 않는다.
 - **새 테이블을 만드는 마이그레이션에는 `ALTER TABLE "<table>" ENABLE ROW LEVEL SECURITY;`를 반드시 넣는다.** Supabase는 `public` 스키마를 anon key로 REST 노출한다. 정책은 만들지 않는다 — 앱은 Prisma(소유자 역할)로만 접근한다.
 - 정합성(중복 방지, 단일 활성 등)은 앱 코드가 아니라 DB 제약으로 보장한다.
-- 누적값 갱신은 읽고 덮어쓰지 말고 `increment` 또는 행 잠금을 쓴다.
+- 누적값 갱신은 읽고 덮어쓰지 말고 `increment` 또는 행 잠금을 쓴다. (미션 완료는 Dino 행을 `FOR UPDATE`로 잠근다.)
+- 부분 유니크 인덱스처럼 Prisma 스키마로 표현할 수 없는 제약은 마이그레이션 SQL에 직접 쓰고 스키마 주석에 남긴다. `prisma migrate dev`는 운영 DB를 가리키는 `.env.local`로 실행하지 않는다 — SQL은 `prisma migrate diff`로 초안을 뽑아 손으로 다듬는다.
 - 테이블은 snake_case(`@@map`), 컬럼은 camelCase다. raw SQL에서는 컬럼명을 큰따옴표로 감싼다.
 
 ## 인프라
@@ -69,38 +71,29 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 | 0 | 안전망: Vitest, CI, 지침 정리, RLS 마이그레이션 | 완료 |
 | 1 | 수집 이전: `jobs/` 신설, Vercel cron·ingest 제거, 데이터 지연 표시, GitHub Actions 스케줄 수집 | 완료 |
 | 2 | 구조 전반부: DB 접근을 `lib`으로 모으기(규칙 1), 세션 헬퍼(규칙 3) | 완료 |
-| 3 | DB 정합성: 유니크 제약, increment, 중복 컬럼·캐시 테이블 정리 | |
+| 3 | DB 정합성: 유니크 제약, 행 잠금, 중복 컬럼·캐시 테이블 정리 | 3-A 구현 완료(미병합), 3-B 남음 |
 | 4 | 구조 후반부: 규칙 2·4·5, 타입·파일 재배치, ADR 정리 | |
 | 5 | 기능 추가 | |
 
 단계를 마치면 이 표의 상태를 갱신한다.
 
-### 남은 확인 사항
+### 남은 정리
 
-1·2단계는 `main`에 병합됐다. 아래 확인이 끝나면 이 절을 지운다.
-
-- [ ] **2단계 — 로그인 상태의 화면 확인.** 홈·미션 목록, 미션 완료 → 전투 화면, 통계·리더보드·던전, 프로필의 닉네임 중복 확인, 관리자 패널(던전 발령·종료, 공룡 조정, 미션 재생성). 비로그인 상태의 리다이렉트와 401 응답은 확인했다.
 - [ ] Vercel 환경변수 `CRON_SECRET`, `KPX_API_KEY`, `VERCEL_INGEST_URL`, `SUPABASE_SERVICE_ROLE_KEY` 삭제 (선택).
 
-### 3단계 시작 전에 정할 것
+### 3단계 진행 상황
 
-- **길드 점수는 누적 점수로 둔다 (2026-11-17 결정).** 시즌제는 5단계의 기능 후보다. 3단계에서는 `guilds.seasonScore`·`leaderboard_cache`를 지우고 길드원 `Dino.totalCleanEnergy`의 합을 쿼리로 계산하며, "시즌"이라는 이름을 정리한다.
-- 3단계는 실제 DB에 되돌리기 어려운 마이그레이션을 적용한다. 20분마다 수집 작업이 같은 DB에 쓰고 있으므로, 스키마 변경은 이전 코드와 새 코드가 모두 동작하는 순서로 나눠 적용한다.
+3단계는 PR 두 개로 나눈다. 20분마다 수집 작업이 같은 DB에 쓰고 있으므로, 스키마 변경은 이전 코드와 새 코드가 모두 동작하는 순서로 적용한다.
 
-### 3단계에서 할 일 (진단 결과)
-
-- `missions`: 일일 미션 중복 발급을 막는 제약이 없다 → `slot` 컬럼 + `(userId, assignedDate, type, slot)` 유니크.
-- `dinos`: 미션 완료가 누적값을 읽고 덮어써 동시 완료 시 보상이 유실된다 → `increment` 또는 행 잠금.
-- `dungeons`: 단일 활성이 보장되지 않는다 → 부분 유니크 인덱스(`WHERE "isActive"`). `triggerReason`은 enum으로.
-- `mission_logs`: `missionId`에 FK·유니크가 없고 `dungeonId`가 없다 → 둘 다 추가하고, 기여도를 시간 범위로 추정하는 코드를 없앤다.
-- `leaderboard_cache`, `guilds.seasonScore`: 같은 집계의 사본이다 → 삭제하고 쿼리로 계산.
-- `users.regionCode`와 `guildId`: 길드와 지역이 1:1이라 중복이다 → 하나만 유지.
-- `world_snapshots`: `isFallback`(코드에서 더 이상 쓰지 않음)·`temperature`(항상 null) 컬럼과 PK와 중복인 `ts` 인덱스 삭제. 보존 기간 삭제는 하지 않는다(연 10만 행 수준이고 누적 시계열이 자산).
+- **3-A (제약 추가, 데이터 삭제 없음)** — `refactor/phase-3a`에서 구현. 마이그레이션 `20261117000000_integrity_constraints`. 내용은 ADR 28.
+- **3-B (중복 컬럼·테이블 삭제)** — 3-A를 며칠 운영한 뒤 진행. "코드가 먼저 안 쓰게 배포 → 그다음 삭제" 순서로 한다. 삭제 전에 Supabase 백업을 받는다.
+  - `leaderboard_cache` 테이블, `guilds.seasonScore`·`scoreUpdatedAt` 삭제 → 길드 점수는 길드원 `Dino.totalCleanEnergy` 합을 쿼리로 계산. 화면의 "시즌 점수"는 "길드 점수"로. (길드 점수는 누적으로 두기로 2026-11-17 결정. 시즌제는 5단계 후보.)
+  - `users.regionCode`는 **삭제하지 않는다** (2026-11-17 결정). 지금은 지역과 길드가 1:1이라 `guildId`와 중복이지만, 한 지역에 길드 여러 개를 두는 기능을 5단계 후보로 남겼다. 그때는 `guilds.regionCode`의 유니크 제약을 풀어야 한다.
+  - `world_snapshots`의 `isFallback`(코드에서 쓰지 않음)·`temperature`(항상 null) 컬럼과 PK와 중복인 `ts` 인덱스 삭제. 보존 기간 삭제는 하지 않는다.
 
 ## 알려진 문제 (해당 단계에서 수정)
 
 - `components/dungeon/dungeon-banner.tsx`의 `if (!cancelled) return;` 조건이 반대라 배너가 갱신되지 않는다 (4단계, Provider 도입 시).
 - `/admin`은 비로그인 상태에서 404가 아니라 500을 낸다 (`requireUser`가 던진 예외를 페이지가 처리하지 않음, 4단계).
 - `lib/types/api.ts`의 응답 필드명 `datails`는 `details`의 오타다 (4단계, 라우트 래퍼 도입 시).
-- 미션 완료의 보상 유실, 일일 미션 중복 발급, 던전 단일 활성 미보장 (3단계).
 - `lib/static-data/weekly-peak-forecast.ts` 데이터가 2026-05-17에 끝나 "오늘의 예상 피크"가 비어 있다 (5단계, KPX `forecastLoad`로 대체 검토).
