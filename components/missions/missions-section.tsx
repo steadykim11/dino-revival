@@ -3,14 +3,14 @@
 //
 // 동작 방식:
 // - /api/missions/today fetch
-// - useWorldState로 carbonIntensity 가져와 모달에 전달
+// - useWorldState(WorldStateProvider)에서 carbonIntensity를 받아 모달에 전달
 // - 완료 후 missions 재조회 + 페이지 router.refresh (Dino 상태 갱신용)
 
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useWorldState } from "@/lib/hooks/use-world-state";
+import { useWorldState } from "@/components/world/world-state-provider";
 import {
   MissionsBottomSheet,
   type MissionItem,

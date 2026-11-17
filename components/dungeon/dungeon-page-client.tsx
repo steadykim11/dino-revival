@@ -16,6 +16,7 @@ import { Clock } from "lucide-react";
 import { MissionCard } from "@/components/missions/mission-card";
 import { MissionCompleteModal } from "@/components/missions/mission-complete-modal";
 import type { MissionItem } from "@/components/missions/missions-bottom-sheet";
+import { formatCountdown } from "@/lib/time/countdown";
 
 interface DungeonPageClientProps {
   dungeonId: string;
@@ -60,18 +61,13 @@ export function DungeonPageClient({
     return () => clearTimeout(id);
   }, [remainingSec, router]);
 
-  const mm = Math.floor(remainingSec / 60)
-    .toString()
-    .padStart(2, "0");
-  const ss = (remainingSec % 60).toString().padStart(2, "0");
-
   return (
     <div className="flex flex-col gap-3">
       {/* 카운트다운만 보여주는 작은 헤더 — 페이지 헤더(뒤로가기/타이틀)는 layout 책임 */}
       <div className="flex items-center justify-end gap-1.5 text-sm text-stone-700">
         <Clock className="h-4 w-4 text-stone-400" aria-hidden />
         <span className="font-medium tabular-nums">
-          {mm}:{ss}
+          {formatCountdown(remainingSec)}
         </span>
         <span className="text-xs text-stone-500">남음</span>
       </div>

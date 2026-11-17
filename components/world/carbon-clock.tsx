@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useWorldState } from "@/lib/hooks/use-world-state";
+import { useNow, useWorldState } from "./world-state-provider";
 import { buildDisplayFuelMix } from "@/lib/world/fuel-mix-display";
 import { battlefieldLabel } from "@/lib/world/battlefield";
 import { relativeTimeKo } from "@/lib/time/relative";
@@ -9,25 +8,14 @@ import { FuelMixBar } from "./fuel-mix-bar";
 import { ForecastLevel } from "@/lib/types/world-snapshot";
 
 export function CarbonClock() {
-  const { data, status } = useWorldState();
+  const { data } = useWorldState();
 
   // "방금 전" → "1분 전" 자동 갱신용
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  const now = useNow(60_000);
 
-  if (status === "unavailable" || (status === "loading" && !data) || !data) {
-    return (
-      <CarbonClockSkeleton
-        message={
-          status === "unavailable"
-            ? "데이터 준비 중입니다"
-            : "데이터 불러오는 중…"
-        }
-      />
-    );
+  // 스냅샷이 아직 하나도 없음
+  if (!data) {
+    return <CarbonClockSkeleton message="데이터 준비 중입니다" />;
   }
 
   const { world, ts, todayForecast } = data;
@@ -46,7 +34,7 @@ export function CarbonClock() {
           className={`text-[11px] ${world.isStale ? "font-medium text-amber-600" : "text-stone-500"}`}
         >
           {world.isStale && "데이터 지연 · "}
-          {relativeTimeKo(ts)}
+          {relativeTimeKo(ts, new Date(now))}
         </span>
       </div>
 

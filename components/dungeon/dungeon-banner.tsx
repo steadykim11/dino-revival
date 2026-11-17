@@ -1,64 +1,33 @@
 // 메인 화면 SC-05의 던전 배너
-// 활성 시에만 노출. 진입 버튼 → /dungeon
-// 자체 /api/world/state 폴링 (5초) — CarbonClock과 독립
-// useWorldState 훅과 컨텍스트 공유 - Phase 2 메인 페이지 리팩토링 계획
+// 활성 던전이 있을 때만 노출. 진입 버튼 → /dungeon
+//
+// 던전 상태는 WorldStateProvider가 받아온 값을 쓴다 (직접 폴링하지 않는다).
+// 남은 시간은 서버가 준 remainingSec에서 받은 뒤 흐른 시간을 빼서 1초마다 갱신한다.
 
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { AlertTriangle, ArrowRight } from "lucide-react";
-import { DungeonState } from "@/lib/types/dungeon";
-import type { WorldStateResponse } from "@/lib/types/world-snapshot";
-
-const POLL_INTERVAL_MS = 5000;
+import { useNow, useWorldState } from "@/components/world/world-state-provider";
+import { formatCountdown, remainingSecondsAt } from "@/lib/time/countdown";
 
 export function DungeonBanner() {
-  const [dungeon, setDungeon] = useState<DungeonState | null>(null);
-  const [remainingSec, setRemainingSec] = useState<number>(0);
+  const { data, receivedAtMs } = useWorldState();
+  const dungeon = data?.dungeon;
+  const isActive = dungeon?.active === true;
 
-  useEffect(() => {
-    let cancelled = false;
+  // 활성 던전이 있을 때만 1초마다 다시 그린다
+  const now = useNow(isActive ? 1000 : null);
 
-    async function fetchOnce() {
-      try {
-        const res = await fetch("/api/world/state", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = (await res.json()) as WorldStateResponse;
-        if (!cancelled) return;
-        setDungeon(data.dungeon);
-        if (data.dungeon.active) {
-          // 서버 기준 remainingSec으로 동기화 - 클라이언트 시계 오차 보정
-          setRemainingSec(data.dungeon.instance.remainingSec);
-        }
-      } catch {
-        // 네트워크 실패 무시 후 다음 폴링에서 회복
-      }
-    }
+  if (!dungeon?.active) return null;
 
-    fetchOnce();
-    const id = setInterval(fetchOnce, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!dungeon?.active) return;
-    const id = setInterval(() => {
-      setRemainingSec((s) => Math.max(0, s - 1));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [dungeon?.active]);
-
-  // 활성 던전 없으면 렌더 안 함
-  if (!dungeon || !dungeon.active) return null;
-
-  const mm = Math.floor(remainingSec / 60)
-    .toString()
-    .padStart(2, "0");
-  const ss = (remainingSec % 60).toString().padStart(2, "0");
+  const remainingSec = remainingSecondsAt(
+    dungeon.instance.remainingSec,
+    receivedAtMs,
+    now,
+  );
+  // 다음 폴링 전에 시간이 다 됐으면 먼저 숨긴다
+  if (remainingSec <= 0) return null;
 
   return (
     <Link
@@ -73,7 +42,7 @@ export function DungeonBanner() {
             피크 던전 발령
           </div>
           <div className="text-xs text-rose-600 tabular-nums">
-            남은 시간 {mm}:{ss}
+            남은 시간 {formatCountdown(remainingSec)}
           </div>
         </div>
       </div>
