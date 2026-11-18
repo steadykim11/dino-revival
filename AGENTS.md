@@ -34,7 +34,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 
 ## 구조 규칙
 
-아래는 목표 상태다. 기존 코드는 아직 다 따르지 않으며(로드맵 참조), **새로 쓰거나 고치는 코드는 반드시 따른다.**
+4단계 이후 기존 코드도 아래 규칙을 따른다. 규칙 1과 "UI는 Prisma 타입을 쓰지 않는다"는 ESLint가 검사한다.
 
 1. **DB 접근은 `lib/` 안에서만.** `app/`과 `components/`는 `prisma`를 import하지 않고 `lib`의 이름 붙은 함수를 호출한다. DB에 접근하는 파일은 `*.server.ts`로 이름 짓고, 클라이언트 컴포넌트에서의 import는 ESLint 규칙으로 막는다. (`server-only` 패키지는 쓰지 않는다 — `jobs/`가 일반 Node로 같은 파일을 실행하는데 그 환경에서는 예외를 던진다.)
 2. **읽기는 서버 컴포넌트가 `lib`을 직접 호출, 쓰기는 Route Handler.** 자기 화면만 쓰는 GET 라우트를 새로 만들지 않는다. (쓰기를 Route Handler로 두는 이유는 ADR 10.)
@@ -63,7 +63,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 - 수집은 GitHub Actions가 한다. `.github/workflows/collect.yml`이 20분마다 `jobs/collect.ts`를 실행해 KPX를 호출하고 DB에 직접 기록한 뒤 던전 모니터를 돌린다 (ADR 24·26). Secrets는 `DATABASE_URL`, `KPX_API_KEY`. **공공데이터포털 한도는 API당 하루 100회**라 주기를 20분(하루 72회)으로 둔다 — 주기를 줄이거나 재시도를 늘리기 전에 이 한도를 확인할 것.
 - `jobs/`는 Next와 무관하게 `tsx`로 실행된다. 여기서 import하는 `lib` 코드는 Next 전용 API(`next/headers`, `server-only` 등)에 의존하면 안 된다.
 - GitHub의 schedule은 정시를 보장하지 않는다(지연·건너뜀 가능). 로컬에서는 `pnpm job:collect`로 1회 실행할 수 있고, `--dry-run`을 붙이면 DB에 쓰지 않는다. 이전의 "KPX가 클라우드 IP를 차단한다"는 제약은 새 주소(`apis.data.go.kr`)에는 해당하지 않는다 (ADR 25).
-- 일일 미션은 자정 cron 없이 `/api/missions/today` 접속 시에만 발급된다.
+- 일일 미션은 자정 cron 없이 홈 화면을 열 때 발급된다 (`getTodayMissions`).
 
 ## 로드맵
 
@@ -73,7 +73,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 | 1 | 수집 이전: `jobs/` 신설, Vercel cron·ingest 제거, 데이터 지연 표시, GitHub Actions 스케줄 수집 | 완료 |
 | 2 | 구조 전반부: DB 접근을 `lib`으로 모으기(규칙 1), 세션 헬퍼(규칙 3) | 완료 |
 | 3 | DB 정합성: 유니크 제약, 행 잠금, 중복 컬럼·캐시 테이블 정리 | 완료 (운영 DB 적용 확인 2026-11-17) |
-| 4 | 구조 후반부: 규칙 2·4·5, 타입·파일 재배치, ADR 정리 | 4-A(라우트 래퍼) 완료. 4-B(월드 상태 Provider·배너 버그·폴링) 구현 완료. 4-C(GET 라우트를 서버 컴포넌트로), 4-D(타입·파일 재배치, ADR 번호) 남음 |
+| 4 | 구조 후반부: 규칙 2·4·5, 타입·파일 재배치, ADR 정리 | 완료 (2026-11-18) |
 | 5 | 기능 추가 | |
 
 단계를 마치면 이 표의 상태를 갱신한다.

@@ -5,6 +5,8 @@
 
 각 항목은 **결정 / 이유 / 대안 / 후속**으로 구성.
 
+번호는 작성 순서가 아니라 고유 식별자다. MVP 개발 중 11~19가 두 번 쓰였던 것을 2026-11-18에 정리했다 — 두 번째 묶음(일일 미션 선정 ~ 통계 대시보드)은 32~40이 됐다. 새 항목은 마지막 번호 다음을 쓴다.
+
 ---
 
 ## 1. 외부 데이터 파이프 — 본인 PC에서 ingest (ADR 24로 대체됨)
@@ -419,7 +421,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 11. 일일 미션 선정 — 슬롯 기반 알고리즘
+## 32. 일일 미션 선정 — 슬롯 기반 알고리즘
 
 **결정**: 사용자별 일일 미션 3개를 "시간대 슬롯 1개씩(DAY/EVENING/ANYTIME)" 강제 선정하고, 그 안에서 카테고리 중복 회피·직전일 풀 제외를 적용한다. 발급 트리거는 KST 자정 Cron + Lazy 백필(`/api/missions/today` 호출 시 누락분 발급) 이중화. 사용자 1명 실패가 전체 일괄 작업을 막지 않도록 사용자별 commit.
 
@@ -445,7 +447,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 12. 보상 계산 — 클라이언트 미리보기 + 서버 검증
+## 33. 보상 계산 — 클라이언트 미리보기 + 서버 검증
 
 **결정**: 미션 보상 계산식(`baseReward × carbonWeight × dungeonMultiplier`)을 `lib/missions/reward-calculator.ts` 순수 함수로 분리하고, 클라이언트(SC-06 모달의 보상 박스)와 서버(/api/missions/complete) 양쪽에서 import해 동일 식 사용. 클라이언트는 폴링 캐시의 carbonIntensity로 미리 표시, 서버는 POST 시점에 최신 WorldSnapshot을 다시 조회해 재계산한다.
 
@@ -468,7 +470,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 13. 전투 결과 화면 — 별도 페이지 + phase 전환
+## 34. 전투 결과 화면 — 별도 페이지 + phase 전환
 
 **결정**: 미션 완료 후 결과 페이지(`/battle/[missionLogId]`)로 라우팅. 한 페이지 안에서 `cutscene → result` 두 phase를 useState로 전환. 적은 전장(carbonIntensity 구간)에 따라 3종(미세먼지/운석/화염) 분기. 애니메이션은 motion 12 (구 framer-motion) 사용.
 
@@ -494,7 +496,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 14. 진화 시스템 — 트랜잭션 일체화 + MissionLog에 stageBefore/After 기록
+## 35. 진화 시스템 — 트랜잭션 일체화 + MissionLog에 stageBefore/After 기록
 
 **결정**: 미션 완료(D12) 트랜잭션 안에서 진화 판정·적용을 함께 처리. 진화 발생 시 Dino.stage·hatchedAt|evolvedAt 갱신과 MissionLog 기록을 같은 `prisma.$transaction`에서 커밋. 진화 정보는 두 곳에 이중 기록 — `/api/missions/complete` 응답의 `evolved: { from, to } | null` 필드와 MissionLog의 `stageBefore`/`stageAfter` 컬럼. battle 페이지는 MissionLog 두 값을 비교해 evolution phase 트리거 여부를 결정.
 
@@ -503,7 +505,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 **이유**:
 
 - 보상 적립과 진화는 의미적으로 같은 트랜잭션의 일부. cleanEnergy가 임계값을 넘는 순간이 곧 진화 시점이라 분리하면 일관성 깨짐(예: 적립 성공 + 진화 실패 시 다음 미션 완료까지 진화 지연).
-- MissionLog에 두 stage를 넣은 이유는 시연 재현성. battle URL을 다시 방문해도 진화 phase가 동일하게 재생됨. 응답 필드만 있으면 새로고침 시 진화 정보 소실. ADR 13에서 phase 전환을 한 페이지로 묶은 정책(새로고침 시 컷씬 재생)과 일관.
+- MissionLog에 두 stage를 넣은 이유는 시연 재현성. battle URL을 다시 방문해도 진화 phase가 동일하게 재생됨. 응답 필드만 있으면 새로고침 시 진화 정보 소실. ADR 34에서 phase 전환을 한 페이지로 묶은 정책(새로고침 시 컷씬 재생)과 일관.
 - 응답 필드도 같이 두는 이유는 클라이언트가 MissionLog 두 컬럼을 또 fetch하지 않아도 즉시 분기 가능. battle 페이지는 서버 컴포넌트라 어차피 DB 조회를 하므로 응답 필드는 mission-complete-modal 등 다른 클라이언트 호출자를 위한 잔여 자산.
 - `shouldEvolve`(순수)와 `applyEvolution`(부수효과) 분리는 테스트 용이성·재사용성 + 진화 로직 SSoT 보장. 호출자가 stage 전이별 timestamp 분기(hatchedAt vs evolvedAt)를 직접 알 필요 없음.
 - result 화면이 stageBefore를 표시하는 이유는 인과 흐름 — "이 단계의 dino가 미션 수행 → 보상 → 진화". stageAfter로 표시하면 "이미 진화한 상태에서 보상 받음"이 되어 evolution phase의 클라이맥스가 약해짐. 진척도 바도 같은 기준으로 통일.
@@ -511,8 +513,8 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 **대안**:
 
 - 진화를 별도 API/cron으로 분리 — 사용자 액션과 진화 시점이 분리되어 시연 임팩트 손해. 트랜잭션 일관성도 깨짐.
-- MissionLog에 진화 정보 미기록, 응답에만 — 시연 재현성 손해(ADR 13 정책 위반).
-- 별도 페이지 `/evolution/[id]` — ADR 13에서 phase 묶음 결정을 뒤집는 셈. 새로고침 시점에 따른 건너뜀/이중 재생 문제 재발.
+- MissionLog에 진화 정보 미기록, 응답에만 — 시연 재현성 손해(ADR 34 정책 위반).
+- 별도 페이지 `/evolution/[id]` — ADR 34에서 phase 묶음 결정을 뒤집는 셈. 새로고침 시점에 따른 건너뜀/이중 재생 문제 재발.
 - `applyEvolution` 인라인 — completer 안에서 stage별 timestamp 분기를 인라인으로 처리하면 D17 관리자 패널이 강제 진화시킬 때 또 같은 분기 작성. SSoT 깨짐.
 - result도 stageAfter — D13 코드 그대로지만 인과 흐름 깨짐.
 
@@ -526,7 +528,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 15. 더미 사용자 — User row만 생성, 활동은 시드 시점 MissionLog로
+## 36. 더미 사용자 — User row만 생성, 활동은 시드 시점 MissionLog로
 
 **결정**: 75명 더미(15 길드 × 5명) 시드. Supabase Auth 우회, User row + `isDummy: true`만 생성. 자정 cron은 더미 제외. 더미의 "활동"은 시드 시점에 과거 MissionLog 5~20개를 결정론적 hash로 입력하는 방식. 닉네임·Dino 분포·MissionLog 모두 인덱스 기반이라 재실행 시 동일 결과. MissionPool과 `calculateCo2Reduced`를 그대로 재사용해 본인 데이터와 동일 경로로 생성.
 
@@ -534,7 +536,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 - 길드 점수·리더보드·통계가 본인 1명만으로는 시연 임팩트 부족. 길드당 5명은 "동네 단위"가 살아나는 최소치.
 - Auth 우회는 시연 토이 범위 결정. createUser API·이메일 충돌 회피 비용이 시연 가치보다 큼.
-- Cron 더미 제외는 ADR 11 후속(60초 한도)을 해소. 더미는 매일 미션 받을 필요 없음 — 시드 시점 입력으로 충분.
+- Cron 더미 제외는 ADR 32 후속(60초 한도)을 해소. 더미는 매일 미션 받을 필요 없음 — 시드 시점 입력으로 충분.
 - 시드로 재현성·디버깅·시연 일관성 확보.
 
 **대안**:
@@ -549,7 +551,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 16. 길드 점수 — Dino.totalCleanEnergy 합산 + 5분 Lazy 캐시 (캐시는 ADR 29로 폐기)
+## 37. 길드 점수 — Dino.totalCleanEnergy 합산 + 5분 Lazy 캐시 (캐시는 ADR 29로 폐기)
 
 **결정**: 길드 시즌 점수는 `Dino.totalCleanEnergy` 합산으로 계산. 리더보드 조회 시 read-through 5분 캐시 (`LeaderboardCache` 단일 행, `id='global'`). 캐시 stale 시 재계산 + `Guild.seasonScore` 컬럼도 동기화. 길드원 리스트는 점수 desc 정렬, 본인 강조는 UI 책임.
 
@@ -574,7 +576,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 17. 피크 던전 — Lifecycle SSoT + 결정론적 미션 분배 + 더미 가상 기여
+## 38. 피크 던전 — Lifecycle SSoT + 결정론적 미션 분배 + 더미 가상 기여
 
 **결정**: 던전 라이프사이클(activate·end·sweep·getCurrentActive)을 `lib/dungeon/lifecycle.ts` SSoT로 분리하고, 단일 활성을 트랜잭션 안에서 보장한다(idempotent). 발령 = 60분, 만료는 lazy + 호출 시 sweep — 별도 cron schedule 추가 없이 기존 `cron/realtime`에 monitor 한 호출을 얹는다. 던전 미션은 MissionPool에서 dungeonId hash 기반으로 결정론적으로 2개 선정해 같은 던전의 모든 실유저가 동일한 미션을 받는다. 더미는 발급 제외, 대신 길드 기여도 위젯에서 `hash(dungeonId, userId) % 3`로 가상 카운트를 합산한다. 던전 종료 후에도 발급된 미션은 당일 자정까지 유효(완료 가능) — 시연 안전망. /world/state의 dungeon 응답은 `expiresAt > now` 가드로 lazy 만료가 자연스럽게 작동.
 
@@ -583,20 +585,20 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 - lifecycle SSoT 분리: trigger·end·monitor 세 진입점이 같은 activate/end를 호출하므로 단일 활성 보장과 sweep 로직이 한 곳에 있어야 일관. 트랜잭션 안에서 sweep + 활성 확인 + 생성을 묶어 동시 호출(관리자 더블 클릭)에도 정확히 1개만 created.
 - 신규 cron schedule 미추가: 기존 `cron/realtime`이 이미 5분마다 도는 hot path. monitor 추가 비용은 쿼리 2~3개 + 수십 ms. 시연 토이 범위에서 자동 트리거 발생은 거의 0이지만 sweep 가치는 있음.
 - 결정론적 미션 분배: 같은 던전에서 모든 사용자가 같은 미션 2개를 받는 게 "전국 단위 비상" 컨셉에 부합. UUID 첫 8자 hash로 풀에서 modulo 선택 — 재실행 안전, 풀 변동 시에도 안정.
-- 더미 가상 기여(ADR 15 후속 회수): 시드 시점 MissionLog는 던전 발령 시각과 매칭 안 됨. 시연 직후 발령된 던전에서 더미 기여 0이면 "동네가 함께" 카피가 깨짐. hash 가상 카운트는 ADR 15의 결정론적 데이터 원칙과 일관.
+- 더미 가상 기여(ADR 36 후속 회수): 시드 시점 MissionLog는 던전 발령 시각과 매칭 안 됨. 시연 직후 발령된 던전에서 더미 기여 0이면 "동네가 함께" 카피가 깨짐. hash 가상 카운트는 ADR 36의 결정론적 데이터 원칙과 일관.
 - 미션 만료 정책: 요약본의 "별도 Cron 없이 조회 시 expiresAt 필터로 처리"와 동일. 던전 종료 시 미션 일괄 만료 안 함 — 던전 시각보다 미션 사용성이 우선.
 
 **대안**:
 
 - 신규 cron `/api/cron/dungeon-monitor` — schedule 1개 추가, 비용 분리되지만 5분 주기가 realtime과 동일이라 통합 이득이 큼.
-- 별도 dungeon 미션 풀 시드 — 시드 추가 + idempotent 가드(ADR 11 후속) 다시 짜야 함. UI 카피 오버라이드로 임팩트 확보 가능해 풀 추가 불필요.
+- 별도 dungeon 미션 풀 시드 — 시드 추가 + idempotent 가드(ADR 32 후속) 다시 짜야 함. UI 카피 오버라이드로 임팩트 확보 가능해 풀 추가 불필요.
 - 사용자별 무작위 미션 — "전국 비상" 컨셉 약화, 가상 기여 검증도 복잡.
 - 더미 가상 기여 미적용 — 시연 임팩트 손해.
 - 던전 종료 시 미션 일괄 만료 — 사용자가 막 완료하려던 미션 사라짐. 시연 도중 발생 시 치명적.
 
 **후속**:
 
-- ADR 16의 LeaderboardCache는 시즌 누적이라 던전 기여도와 별개. 던전 contribution은 캐시 없이 던전 페이지 진입 시 1회 조회 — 던전 활성 동안만 호출되는 페이지라 부하 미미.
+- ADR 37의 LeaderboardCache는 시즌 누적이라 던전 기여도와 별개. 던전 contribution은 캐시 없이 던전 페이지 진입 시 1회 조회 — 던전 활성 동안만 호출되는 페이지라 부하 미미.
 - MissionLog에 `dungeonId` 컬럼 없음 → 기여도 집계가 `missionType + 시각 필터`에 의존. 정확도보다 단순함 우선. 두 던전이 같은 사용자에게 겹치는 시나리오(현 정책상 불가)에선 잔여 미션이 다른 던전의 기여도로 합산될 가능성 있음. Phase 2에서 컬럼 추가 검토.
 - 자동 발령 임계(예비율 10%)는 한국 전력망에서 실제 발생 가능성 낮음. monitor가 항상 ALREADY_ACTIVE 또는 ABOVE_THRESHOLD 반환할 것 — 정상.
 - D19 관리자 패널이 trigger·end 두 엔드포인트를 호출 (SC-13). 본인 user.id가 ADMIN_USER_IDS에 등록되어 있어야 시연 가능.
@@ -605,9 +607,9 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 18. 관리자 공룡 강제 조정 — applyEvolution 우회 + 인라인 timestamp 분기
+## 39. 관리자 공룡 강제 조정 — applyEvolution 우회 + 인라인 timestamp 분기
 
-**결정**: `/api/admin/dino` PATCH는 `lib/dino/evolution.ts`의 `applyEvolution`을 호출하지 않고, stage·hatchedAt·evolvedAt을 라우트 안에서 직접 분기 update한다. timestamp 규칙은 "기존값 유지, null이면 now" — EGG로 되돌릴 때만 두 timestamp 모두 클리어, HATCHLING/ADULT로 갈 때는 해당 단계에 필요한 timestamp가 null이면 now로 채우고 기존값은 보존. ADR 14의 "관리자 패널이 applyEvolution을 재사용한다"는 후속 가설을 뒤집는 결정.
+**결정**: `/api/admin/dino` PATCH는 `lib/dino/evolution.ts`의 `applyEvolution`을 호출하지 않고, stage·hatchedAt·evolvedAt을 라우트 안에서 직접 분기 update한다. timestamp 규칙은 "기존값 유지, null이면 now" — EGG로 되돌릴 때만 두 timestamp 모두 클리어, HATCHLING/ADULT로 갈 때는 해당 단계에 필요한 timestamp가 null이면 now로 채우고 기존값은 보존. ADR 35의 "관리자 패널이 applyEvolution을 재사용한다"는 후속 가설을 뒤집는 결정.
 
 **이유**:
 
@@ -630,7 +632,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 19. 통계 대시보드 — 라인차트 1개 우선, 히트맵 컷, recharts 도입
+## 40. 통계 대시보드 — 라인차트 1개 우선, 히트맵 컷, recharts 도입
 
 **결정**: SC-10 통계 대시보드를 4개 블록(상단 카드 3개·7일 탄소강도 라인차트·동네 평균 비교·NDR 시장 비교)으로 구성. 와이어프레임의 "차트 2 — 시간대별 활동 히트맵(Should)"은 D20 시점에 컷. 차트 라이브러리는 recharts. `/api/me/stats`·`/api/world/history` 별도 라우트 없이 page에서 prisma 직접 호출 (D17 리더보드 패턴 재사용). 7일 탄소강도는 시간별 평균으로 다운샘플(2,016행 → 168행)해 raw `$queryRaw`로 집계.
 
@@ -638,7 +640,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 - D20은 일정상 "통계 대시보드 + 시연 시나리오 완주" 두 작업이 묶인 날. 통계에 시간 다 쓰면 시연 리허설을 못 함 → 시연 완주가 D24 영상 녹화 사전 검증으로 더 큰 가치.
 - 히트맵은 와이어프레임도 "Should" 표기 = 필수 아님. D21 폴리싱 또는 Phase 2로 미뤄도 시연 시나리오에 영향 없음(SC-10 자체가 5분 시연 마지막 30초만 등장).
-- recharts 채택: motion 도입(ADR 13)과 같은 논리 — "직접 구현보다 라이브러리가 시간 절약 + 시연 품질 확보". LineChart 1개에 30줄. React 19 호환.
+- recharts 채택: motion 도입(ADR 34)과 같은 논리 — "직접 구현보다 라이브러리가 시간 절약 + 시연 품질 확보". LineChart 1개에 30줄. React 19 호환.
 - 별도 API 라우트 미작성: D17 리더보드에서 정한 "서버 컴포넌트가 lib 직접 호출, API self-loopback 회피" 정책 그대로. 통계 페이지 외 다른 호출자가 없으면 라우트는 죽은 코드.
 - 시간별 다운샘플: 5분 단위 원본을 라인차트에 그대로 그리는 것 보다는 시간 평균이 추이 표현에 효율적.
 
@@ -783,7 +785,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 ---
 
-## 29. 중복 컬럼·캐시 테이블 삭제 (3단계 B, ADR 16의 캐시 폐기)
+## 29. 중복 컬럼·캐시 테이블 삭제 (3단계 B, ADR 37의 캐시 폐기)
 
 **결정**: 다른 데이터에서 다시 계산할 수 있는 사본과 쓰지 않는 컬럼을 지운다. 마이그레이션 `20261117010000_drop_redundant_columns`.
 
@@ -825,7 +827,7 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 **함께 바꾼 것**:
 
 - `/admin` 페이지가 비로그인 상태에서 500을 내던 것을 404로 (관리자가 아닐 때와 같게 — 페이지 존재를 숨긴다).
-- 호출하는 곳이 없던 라우트 삭제: `GET /api/guilds/leaderboard`, `GET /api/guilds/me`, `GET /api/me/dino`. 해당 화면은 서버 컴포넌트가 `lib`을 직접 호출한다 (ADR 19의 "호출자 없는 라우트를 만들지 않는다"와 같은 방침).
+- 호출하는 곳이 없던 라우트 삭제: `GET /api/guilds/leaderboard`, `GET /api/guilds/me`, `GET /api/me/dino`. 해당 화면은 서버 컴포넌트가 `lib`을 직접 호출한다 (ADR 40의 "호출자 없는 라우트를 만들지 않는다"와 같은 방침).
 - `/api/health`가 DB 오류 메시지를 그대로 응답에 넣던 것을 고정 문구로 (접속 정보가 섞일 수 있다).
 - `lib/auth/require-user.ts`, `withAuth`, `withAdmin` 삭제. 라우트의 인증도 페이지와 같은 `getAuthUser`를 쓴다.
 
@@ -872,3 +874,31 @@ D21에 정식 일러스트로 교체할 때 props 인터페이스(`species`·`st
 
 - 브라우저 테스트 환경이 없어 effect(폴링 시작·중지, 1초 갱신)는 자동 테스트로 확인하지 못한다. 폴러와 카운트다운 계산은 단위 테스트로, 첫 렌더링 결과는 `renderToString` 테스트로 검사한다.
 - 던전 페이지(`dungeon-page-client`)의 카운트다운은 여전히 자체 타이머다. 진입 시 서버가 준 값에서 시작하므로 그대로 둔다.
+
+---
+
+## 41. 화면 데이터는 서버 컴포넌트가 — 남은 GET 라우트 정리와 도메인 타입 (4단계 C·D)
+
+**결정**:
+
+- 자기 화면만 쓰던 GET 라우트 두 개를 없애고, 해당 페이지의 서버 컴포넌트가 `lib`을 직접 호출한다.
+  - `GET /api/missions/today` → 홈 페이지가 `getTodayMissions()`로 읽어 미션 영역에 넘긴다. 오늘자 일일 미션이 없으면 이때 발급된다.
+  - `GET /api/me` → 프로필 페이지가 서버에서 읽어 `ProfileView`에 넘긴다. 저장 후에는 `router.refresh()`로 다시 받는다. 온보딩 첫 단계의 "이미 프로필이 있으면 알 선택으로" 이동도 서버에서 한다.
+- 타입을 도메인 폴더로 옮겼다: `lib/types/` → `lib/world/types.ts`, `lib/world/fuel-mix.ts`, `lib/dungeon/types.ts`. UI가 쓰는 enum은 `lib/dino/types.ts`, `lib/missions/types.ts`에 두고, Prisma enum과 값이 어긋나면 컴파일 에러가 나게 했다. `components/`에서 `@prisma/client` import는 ESLint가 막는다.
+- 두 곳 이상에 있던 규칙을 하나로: 이름 규칙(`lib/profile/name-rule.ts`, 5곳), 전장 임계값(`lib/world/battlefield.ts`, 2곳), KST 날짜(`kstDateAsUtcMidnight`, 4곳), 5분 정규화(2곳), Mission → 화면 항목 변환(`toMissionItem`, 2곳).
+- ADR 번호 11~19의 중복을 정리했다 (두 번째 묶음 → 32~40).
+
+**이유**:
+
+- 홈의 미션 시트와 프로필 화면은 마운트 뒤에 fetch해서, 처음에는 "불러오는 중"이 보였다가 채워졌다. 서버에서 읽으면 한 번에 그려지고 API 라우트도 필요 없다 (규칙 2).
+- UI가 Prisma 타입을 직접 쓰면 스키마 변경이 화면 코드까지 번진다. 도메인 타입을 두되, 손으로 적은 값 목록이 스키마와 어긋나는 위험은 타입 검사로 막는다.
+- 같은 규칙이 여러 곳에 있으면 한쪽만 바뀌는 사고가 난다. 전장 임계값은 화면 표시와 보상 가중치가 각각 들고 있었다.
+
+**대안**:
+
+- Prisma enum을 그대로 다시 내보내기(re-export) — 타입은 분리되지만 UI가 여전히 Prisma 패키지를 가져온다.
+
+**후속**:
+
+- 홈 페이지 렌더링 중에 일일 미션이 발급된다(쓰기). 동시 접속으로 겹쳐도 유니크 제약(ADR 28)이 중복을 막는다.
+- 미션을 완료하면 전투 화면을 거쳐 홈으로 돌아오며, 이때 서버가 다시 그려 목록이 갱신된다. 같은 화면 안에서 목록만 바꾸는 흐름은 없다.
