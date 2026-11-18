@@ -15,16 +15,14 @@ import { DinoSpecies } from "@prisma/client";
 import { createDino } from "@/lib/dino/dino.server";
 import { SPECIES_META } from "@/lib/dino/species";
 import { errorResponse, route } from "@/lib/http/route";
+import { NAME_PATTERN } from "@/lib/profile/name-rule";
 import { userExists } from "@/lib/users/users.server";
-
-// 이름 규칙: 닉네임과 동일 (2~12자, 한글·영문·숫자)
-const DINO_NAME_REGEX = /^[가-힣a-zA-Z0-9]{2,12}$/;
 
 const PutSchema = z.object({
   species: z.nativeEnum(DinoSpecies),
   name: z
     .string()
-    .regex(DINO_NAME_REGEX, "이름은 2~12자 한글·영문·숫자만 가능합니다."),
+    .regex(NAME_PATTERN, "이름은 2~12자 한글·영문·숫자만 가능합니다."),
 });
 
 export const PUT = route(

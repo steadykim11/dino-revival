@@ -15,7 +15,7 @@ import { EnemyDisplay } from "./enemy-display";
 import { SPECIES_META } from "@/lib/dino/species";
 import { getEvolutionProgress } from "@/lib/dino/evolution";
 import type { EnemyMeta } from "@/lib/battle/enemy-types";
-import type { DinoSpecies, DinoStage } from "@prisma/client";
+import type { DinoSpecies, DinoStage } from "@/lib/dino/types";
 
 export interface BattleResultProps {
   dino: {

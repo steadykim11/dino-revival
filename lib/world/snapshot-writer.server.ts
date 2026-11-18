@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { fetchWorldSnapshot } from "@/lib/external/kpx";
 import { ExternalApiError } from "@/lib/external/http";
-import type { WorldSnapshotData } from "@/lib/types/world-snapshot";
+import type { WorldSnapshotData } from "@/lib/world/types";
 
 export type WriteResult =
   | { kind: "success"; ts: Date; carbonIntensity: number }

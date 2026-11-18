@@ -46,6 +46,11 @@ const eslintConfig = defineConfig([
               message:
                 "DB 접근은 lib/**/*.server.ts 안에서만 합니다. lib의 함수를 호출하세요.",
             },
+            {
+              name: "@prisma/client",
+              message:
+                "UI는 Prisma 타입 대신 도메인 타입(lib/dino/types.ts, lib/missions/types.ts 등)을 씁니다.",
+            },
           ],
           patterns: [
             {

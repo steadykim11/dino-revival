@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FuelMix } from "@/lib/types/fuel-mix";
+import type { FuelMix } from "@/lib/world/fuel-mix";
 import { calcCarbonIntensity } from "./kpx";
 
 const ZERO: FuelMix = {

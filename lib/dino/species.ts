@@ -6,7 +6,7 @@
 // - SC-05 메인: color로 dino-display 배경·테마
 // - SC-08 진화 연출: stageLabel·evolutionLines (D14 추가)
 
-import { DinoSpecies, DinoStage } from "@prisma/client";
+import { DINO_SPECIES, type DinoSpecies, type DinoStage } from "./types";
 
 export interface SpeciesMeta {
   /** 표시명 (예: "티라노 계열") */
@@ -77,7 +77,7 @@ export const SPECIES_META: Record<DinoSpecies, SpeciesMeta> = {
  * MVP에서 선택 가능한 종 목록
  * SC-04 카드 렌더링에 사용 (잠금 카드도 표시해야 하므로 전체 목록 + isAvailable 필터링)
  */
-export const ALL_SPECIES = Object.keys(SPECIES_META) as DinoSpecies[];
+export const ALL_SPECIES: readonly DinoSpecies[] = DINO_SPECIES;
 
 /**
  * 색상 키 → Tailwind 클래스 매핑 (필요시)

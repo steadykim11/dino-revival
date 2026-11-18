@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import { Clock } from "lucide-react";
 import { MissionCard } from "@/components/missions/mission-card";
 import { MissionCompleteModal } from "@/components/missions/mission-complete-modal";
-import type { MissionItem } from "@/components/missions/missions-bottom-sheet";
+import type { MissionItem } from "@/lib/missions/types";
 import { formatCountdown } from "@/lib/time/countdown";
 
 interface DungeonPageClientProps {

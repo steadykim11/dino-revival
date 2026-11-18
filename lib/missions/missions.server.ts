@@ -3,8 +3,9 @@
 // 발급은 daily-issuer.server.ts, 완료 트랜잭션은 completer.server.ts.
 
 import { prisma } from "@/lib/prisma";
-import { toKstDateString } from "@/lib/time/kst";
+import { kstDateAsUtcMidnight } from "@/lib/time/kst";
 import { issueDailyMissions } from "./daily-issuer.server";
+import type { MissionItem } from "./types";
 
 /** 화면 표시에 필요한 미션 풀 필드 */
 const POOL_SELECT = {
@@ -16,17 +17,12 @@ const POOL_SELECT = {
   estimatedKwh: true,
 } as const;
 
-/** KST 날짜의 UTC 자정 — Mission.assignedDate 저장 형식 */
-function toAssignedDate(now: Date): Date {
-  return new Date(`${toKstDateString(now)}T00:00:00.000Z`);
-}
-
 async function findTodayMissions(userId: string, now: Date) {
   return prisma.mission.findMany({
     where: {
       userId,
       OR: [
-        { assignedDate: toAssignedDate(now), type: "DAILY" },
+        { assignedDate: kstDateAsUtcMidnight(now), type: "DAILY" },
         { type: "DUNGEON", expiresAt: { gt: new Date() } },
       ],
     },
@@ -93,8 +89,25 @@ export async function regenerateDailyMissions(
   now: Date = new Date(),
 ) {
   const deleted = await prisma.mission.deleteMany({
-    where: { userId, assignedDate: toAssignedDate(now), type: "DAILY" },
+    where: { userId, assignedDate: kstDateAsUtcMidnight(now), type: "DAILY" },
   });
   const result = await issueDailyMissions(userId, now);
   return { deletedCount: deleted.count, result };
+}
+
+type MissionWithPool = Awaited<ReturnType<typeof getTodayMissions>>[number];
+
+/** Mission 행 → 화면 표시용 MissionItem (홈·던전 공용) */
+export function toMissionItem(m: MissionWithPool): MissionItem {
+  return {
+    id: m.id,
+    title: m.pool.title,
+    description: m.pool.description,
+    category: m.pool.category,
+    timeSlot: m.pool.timeSlot,
+    type: m.type,
+    baseReward: m.pool.baseReward,
+    estimatedKwh: m.pool.estimatedKwh.toString(),
+    completedAt: m.completedAt?.toISOString() ?? null,
+  };
 }

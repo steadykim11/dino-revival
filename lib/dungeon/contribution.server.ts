@@ -7,7 +7,7 @@
 //   "동네 기여도" 위젯이 본인 혼자가 됨 -> 시연 임팩트 감소
 
 import { prisma } from "@/lib/prisma";
-import type { GuildContribution } from "@/lib/types/dungeon";
+import type { GuildContribution } from "@/lib/dungeon/types";
 
 /**
  * 던전 기간 내 본인 + 같은 길드 더미의 기여도 집계.

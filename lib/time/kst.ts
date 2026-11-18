@@ -72,3 +72,14 @@ export function kstNextMidnight(now: Date): Date {
   );
   return new Date(kstNextMidnightMs - KST_OFFSET_MS);
 }
+
+/**
+ * UTC Date → 그 순간의 KST 날짜를 "UTC 자정"으로 표현한 Date.
+ *
+ * Mission.assignedDate(@db.Date) 저장·조회에 쓴다. DATE 컬럼은 시각이 없으므로
+ * "KST 기준 며칠인가"만 담기도록 KST 날짜 문자열에 UTC 자정을 붙인다.
+ * 예: 2026-05-07T16:00Z (KST 5/8 01:00) → 2026-05-08T00:00:00.000Z
+ */
+export function kstDateAsUtcMidnight(d: Date): Date {
+  return new Date(`${toKstDateString(d)}T00:00:00.000Z`);
+}

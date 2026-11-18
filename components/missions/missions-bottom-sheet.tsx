@@ -17,36 +17,17 @@ import { useState } from "react";
 import { ChevronUp } from "lucide-react";
 import { MissionCard } from "./mission-card";
 import { MissionCompleteModal } from "./mission-complete-modal";
-import type {
-  MissionCategory,
-  MissionTimeSlot,
-  MissionType,
-} from "@prisma/client";
-
-export interface MissionItem {
-  id: string;
-  title: string;
-  description: string;
-  category: MissionCategory;
-  timeSlot: MissionTimeSlot;
-  type: MissionType;
-  baseReward: number;
-  estimatedKwh: string;
-  completedAt: string | null;
-}
+import type { MissionItem } from "@/lib/missions/types";
 
 export interface MissionsBottomSheetProps {
   missions: MissionItem[];
   /** 현재 carbonIntensity (보상 미리보기 표시에 사용) */
   carbonIntensity: number | null;
-  /** 완료 후 미션 목록 새로고침을 트리거 */
-  onMissionCompleted: () => void;
 }
 
 export function MissionsBottomSheet({
   missions,
   carbonIntensity,
-  onMissionCompleted,
 }: MissionsBottomSheetProps) {
   const [expanded, setExpanded] = useState(false);
   const [selectedMission, setSelectedMission] = useState<MissionItem | null>(
@@ -104,7 +85,7 @@ export function MissionsBottomSheet({
         >
           {missions.length === 0 ? (
             <p className="py-4 text-center text-xs text-stone-500">
-              미션을 불러오는 중...
+              오늘의 미션을 준비하지 못했어요. 잠시 후 새로고침해 주세요.
             </p>
           ) : expanded ? (
             <>

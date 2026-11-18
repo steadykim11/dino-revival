@@ -11,7 +11,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { toKstDateString, kstNextMidnight } from "@/lib/time/kst";
+import { kstDateAsUtcMidnight, kstNextMidnight } from "@/lib/time/kst";
 
 /** SC-09 와이어프레임의 "던전 미션 2개" */
 export const DUNGEON_MISSION_COUNT = 2;
@@ -93,8 +93,7 @@ export async function issueDungeonMissions(
 
   // 4) 일괄 발급
   // daily-issuer와 동일한 방식: assignedDate는 KST 날짜의 UTC 자정.
-  const todayKst = toKstDateString(now);
-  const assignedDate = new Date(`${todayKst}T00:00:00.000Z`);
+  const assignedDate = kstDateAsUtcMidnight(now);
   const expiresAt = kstNextMidnight(now);
 
   const rows: Prisma.MissionCreateManyInput[] = [];

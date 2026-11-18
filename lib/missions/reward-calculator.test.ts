@@ -3,24 +3,10 @@ import {
   applyIntimacy,
   calculateCo2Reduced,
   calculateReward,
-  getBattlefield,
   getCarbonWeight,
   INTIMACY_CAP,
   INTIMACY_PER_MISSION,
 } from "./reward-calculator";
-
-describe("getBattlefield", () => {
-  it.each([
-    [0, "PURIFIED"],
-    [299.99, "PURIFIED"],
-    [300, "NORMAL"],
-    [499.99, "NORMAL"],
-    [500, "POLLUTED"],
-    [900, "POLLUTED"],
-  ] as const)("탄소강도 %d → %s", (ci, expected) => {
-    expect(getBattlefield(ci)).toBe(expected);
-  });
-});
 
 describe("getCarbonWeight", () => {
   it("전장별 가중치: 1.0 / 1.2 / 1.5", () => {

@@ -12,7 +12,7 @@
 //   타이핑되는 대사 (species.evolutionLines)
 //   "계속하기" 버튼 → 메인으로
 
-import type { DinoSpecies, DinoStage } from "@prisma/client";
+import type { DinoSpecies, DinoStage } from "@/lib/dino/types";
 import { motion } from "motion/react";
 import { DinoDisplay } from "@/components/dino/dino-display";
 import { SPECIES_META, STAGE_LABEL } from "@/lib/dino/species";

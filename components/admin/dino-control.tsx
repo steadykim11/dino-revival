@@ -6,7 +6,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { DinoStage } from "@prisma/client";
+import type { DinoStage } from "@/lib/dino/types";
 
 interface InitialDino {
   name: string;

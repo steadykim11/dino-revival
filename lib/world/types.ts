@@ -1,5 +1,6 @@
 import { FuelMix } from "./fuel-mix";
-import type { DungeonState } from "./dungeon";
+import type { DungeonState } from "@/lib/dungeon/types";
+import type { Battlefield } from "./battlefield";
 
 /**
  * 5분 단위 전력망 상태 = DB(WorldSnapshot)와 1:1 매핑되는 도메인 타입
@@ -22,8 +23,6 @@ export type WorldSnapshotData = {
  * - 던전 상태 포함
  * - fuelMixPercent의 분모는 "mw > 0인 항목 합" (kpx.ts의 탄소강도 계산과 동일 기준)
  */
-
-export type Battlefield = "PURIFIED" | "NORMAL" | "POLLUTED";
 
 export type ForecastLevel = "LOW" | "MEDIUM" | "HIGH";
 

@@ -5,7 +5,7 @@
 // - stop(): 타이머와 진행 중인 요청을 취소한다. 이미 떠난 요청의 응답이 뒤늦게 와도 버린다.
 // - 요청이 끝난 뒤에 다음 타이머를 건다 — 응답이 느려도 요청이 겹치지 않는다.
 
-import type { WorldStateResponse } from "@/lib/types/world-snapshot";
+import type { WorldStateResponse } from "@/lib/world/types";
 
 export interface WorldStatePollerOptions {
   intervalMs: number;

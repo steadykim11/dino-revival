@@ -1,5 +1,5 @@
 // lib/world/fuel-mix-display.ts
-import type { FuelMix } from "@/lib/types/fuel-mix";
+import type { FuelMix } from "@/lib/world/fuel-mix";
 
 export type DisplayFuelKey =
   | "coal" // 석탄 = coal + coalDomestic

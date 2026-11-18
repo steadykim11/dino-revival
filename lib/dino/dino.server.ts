@@ -68,7 +68,7 @@ export async function applyEvolution(
 }
 
 /**
- * 관리자 시연용 강제 조정 (ADR 18 "관리자 공룡 강제 조정").
+ * 관리자 시연용 강제 조정 (ADR 39 "관리자 공룡 강제 조정").
  *
  * applyEvolution을 의도적으로 우회한다 — 진화는 단방향(EGG→HATCHLING→ADULT) 전제인데
  * 시연 컨트롤은 역방향도 필요하다. timestamp 정책은 "기존값 유지, null이면 now":

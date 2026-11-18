@@ -11,7 +11,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DinoSpecies } from "@prisma/client";
+import type { DinoSpecies } from "@/lib/dino/types";
 import { SPECIES_META, ALL_SPECIES } from "@/lib/dino/species";
 import { DinoDisplay } from "@/components/dino/dino-display";
 

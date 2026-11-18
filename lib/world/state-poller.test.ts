@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorldStateResponse } from "@/lib/types/world-snapshot";
+import type { WorldStateResponse } from "@/lib/world/types";
 import { createWorldStatePoller } from "./state-poller";
 
 const INTERVAL = 30_000;

@@ -8,8 +8,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { isValidName } from "@/lib/profile/name-rule";
 
-const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,12}$/;
 const DEBOUNCE_MS = 400;
 
 export type NicknameStatus =
@@ -28,7 +28,7 @@ export function useNicknameCheck(nickname: string): NicknameStatus {
       setStatus({ kind: "idle" });
       return;
     }
-    if (!NICKNAME_REGEX.test(trimmed)) {
+    if (!isValidName(trimmed)) {
       setStatus({ kind: "invalid_format" });
       return;
     }

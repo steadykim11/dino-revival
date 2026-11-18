@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { calculateReward } from "@/lib/missions/reward-calculator";
-import type { MissionItem } from "./missions-bottom-sheet";
+import type { MissionItem } from "@/lib/missions/types";
 import { useRouter } from "next/navigation";
 
 export interface MissionCompleteModalProps {

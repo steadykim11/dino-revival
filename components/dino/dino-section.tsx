@@ -6,7 +6,7 @@
 // - 이름 + 종·단계 라벨
 // - 진화 진행도 바 (EGG·HATCHLING). ADULT는 진행도 없음.
 
-import type { DinoSpecies, DinoStage } from "@prisma/client";
+import type { DinoSpecies, DinoStage } from "@/lib/dino/types";
 import { DinoDisplay } from "./dino-display";
 import { SPECIES_META } from "@/lib/dino/species";
 import { getEvolutionProgress } from "@/lib/dino/evolution";

@@ -1,15 +1,11 @@
-// lib/world/snapshot-reader.ts
 import { type Dungeon, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { FuelMixSchema, type FuelMix } from "@/lib/types/fuel-mix";
-import type {
-  WorldStateResponse,
-  Battlefield,
-} from "@/lib/types/world-snapshot";
-import { classifyBattlefield } from "./battlefield";
+import { FuelMixSchema, type FuelMix } from "@/lib/world/fuel-mix";
+import type { WorldStateResponse } from "@/lib/world/types";
+import { classifyBattlefield, type Battlefield } from "./battlefield";
 import { isSnapshotStale } from "./staleness";
 import { getTodayForecast } from "./peak-forecast";
-import type { DungeonState } from "@/lib/types/dungeon";
+import type { DungeonState } from "@/lib/dungeon/types";
 
 /**
  * Prisma Decimal | string | number | null 을 number로.

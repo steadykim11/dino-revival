@@ -7,7 +7,7 @@
 
 import type { Dungeon, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { DungeonTriggerReason } from "@/lib/types/dungeon";
+import type { DungeonTriggerReason } from "@/lib/dungeon/types";
 
 /** 던전 활성 시간 (분) */
 export const DUNGEON_DURATION_MIN = 60;

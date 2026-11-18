@@ -8,7 +8,7 @@
 
 "use client";
 
-import type { DinoSpecies, DinoStage } from "@prisma/client";
+import type { DinoSpecies, DinoStage } from "@/lib/dino/types";
 import { SPECIES_COLOR_HEX, SPECIES_META } from "@/lib/dino/species";
 import { useIdleStateMachine } from "@/lib/dino/idle-state-machine";
 

@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/auth/session.server";
 import { getDino } from "@/lib/dino/dino.server";
 import { getMissionLog } from "@/lib/missions/missions.server";
-import { getBattlefield } from "@/lib/missions/reward-calculator";
+import { classifyBattlefield } from "@/lib/world/battlefield";
 import { ENEMY_META } from "@/lib/battle/enemy-types";
 import { BattlePageClient } from "@/components/battle/battle-page-client";
 
@@ -33,7 +33,7 @@ export default async function BattlePage({ params }: PageProps) {
   if (!dino) notFound();
 
   // 전장 → 적
-  const battlefield = getBattlefield(Number(log.carbonIntensityAtCompletion));
+  const battlefield = classifyBattlefield(Number(log.carbonIntensityAtCompletion));
   const enemy = ENEMY_META[battlefield];
 
   // before/after 역산

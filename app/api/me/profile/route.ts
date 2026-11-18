@@ -4,15 +4,14 @@
 
 import { z } from "zod";
 import { errorResponse, route } from "@/lib/http/route";
+import { NAME_PATTERN } from "@/lib/profile/name-rule";
 import { saveProfile } from "@/lib/profile/profile.server";
 import { isValidRegionCode } from "@/lib/static-data/regions";
-
-const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]{2,12}$/;
 
 const ProfileSchema = z.object({
   nickname: z
     .string()
-    .regex(NICKNAME_REGEX, "닉네임은 2~12자 한글·영문·숫자만 가능합니다."),
+    .regex(NAME_PATTERN, "닉네임은 2~12자 한글·영문·숫자만 가능합니다."),
   regionCode: z
     .string()
     .length(5, "올바른 동네 코드가 아닙니다.")

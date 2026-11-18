@@ -11,7 +11,7 @@ import type {
   MissionCategory,
   MissionTimeSlot,
   MissionType,
-} from "@prisma/client";
+} from "@/lib/missions/types";
 import { Check } from "lucide-react";
 
 const CATEGORY_LABEL: Record<MissionCategory, string> = {

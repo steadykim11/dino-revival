@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { selectDailyMissions } from "./daily-selector";
-import { toKstDateString, kstNextMidnight } from "@/lib/time/kst";
+import { kstDateAsUtcMidnight, kstNextMidnight } from "@/lib/time/kst";
 
 export interface IssueResult {
   userId: string;
@@ -19,15 +19,12 @@ export async function issueDailyMissions(
   userId: string,
   now: Date = new Date(),
 ): Promise<IssueResult> {
-  const todayKst = toKstDateString(now); // "yyyy-MM-dd"
-
   // 오늘자 만료 시각: 다음 KST 자정 (= 오늘 KST 24:00)
   // KST 자정 = UTC 15:00 전일
   // expiresAt 계산은 KST 다음날 00:00 → UTC로
   const expiresAt = kstNextMidnight(now);
 
-  // assignedDate는 KST 기준 날짜의 UTC 자정으로 저장 (DB는 @db.Date)
-  const assignedDate = new Date(`${todayKst}T00:00:00.000Z`);
+  const assignedDate = kstDateAsUtcMidnight(now);
 
   try {
     // 1) 이미 오늘자 미션이 있으면 skip
@@ -44,10 +41,9 @@ export async function issueDailyMissions(
     }
 
     // 2) 풀 + 직전일 사용 풀 ID 조회 (병렬)
-    const yesterdayKst = toKstDateString(
+    const yesterdayDate = kstDateAsUtcMidnight(
       new Date(now.getTime() - 24 * 60 * 60 * 1000),
     );
-    const yesterdayDate = new Date(`${yesterdayKst}T00:00:00.000Z`);
 
     const [pool, yesterdayMissions] = await Promise.all([
       prisma.missionPool.findMany({

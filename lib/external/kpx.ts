@@ -1,7 +1,8 @@
 import { fetchKpxD1 } from "./kpx-d1";
 import { fetchKpxD2 } from "./kpx-d2";
-import { WorldSnapshotData } from "@/lib/types/world-snapshot";
-import { FuelMix } from "@/lib/types/fuel-mix";
+import { normalizeTo5Min } from "@/lib/time/kst";
+import { WorldSnapshotData } from "@/lib/world/types";
+import { FuelMix } from "@/lib/world/fuel-mix";
 
 /**
  * 탄소 배출계수 (gCO2/kWh)
@@ -61,11 +62,4 @@ export async function fetchWorldSnapshot(): Promise<WorldSnapshotData> {
     currentLoad: Math.round(d1.currentLoad),
     fuelMix: d2.fuelMix,
   };
-}
-
-// 5분 단위로 내림 정규화 (UTC)
-function normalizeTo5Min(d: Date): Date {
-  const ms = d.getTime();
-  const fiveMin = 5 * 60 * 1000;
-  return new Date(Math.floor(ms / fiveMin) * fiveMin);
 }

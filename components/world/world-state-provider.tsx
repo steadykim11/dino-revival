@@ -16,7 +16,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { WorldStateResponse } from "@/lib/types/world-snapshot";
+import type { WorldStateResponse } from "@/lib/world/types";
 import { createWorldStatePoller } from "@/lib/world/state-poller";
 
 /**

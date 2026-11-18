@@ -14,7 +14,7 @@ import { motion } from "motion/react";
 import { DinoDisplay } from "@/components/dino/dino-display";
 import { EnemyDisplay } from "./enemy-display";
 import type { EnemyMeta } from "@/lib/battle/enemy-types";
-import type { DinoSpecies, DinoStage } from "@prisma/client";
+import type { DinoSpecies, DinoStage } from "@/lib/dino/types";
 
 export interface BattleCutsceneProps {
   dino: { species: DinoSpecies; stage: DinoStage };

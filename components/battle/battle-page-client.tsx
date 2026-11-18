@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { BattleCutscene } from "./battle-cutscene";
 import { BattleResult } from "./battle-result";
 import { EvolutionScene } from "./evolution-scene";
-import type { DinoSpecies, DinoStage } from "@prisma/client";
+import type { DinoSpecies, DinoStage } from "@/lib/dino/types";
 import type { EnemyMeta } from "@/lib/battle/enemy-types";
 import { BattleIntro } from "./battle-intro";
 

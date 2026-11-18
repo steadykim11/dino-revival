@@ -3,6 +3,7 @@ import { WorldStateProvider } from "@/components/world/world-state-provider";
 import { PageHeader } from "@/components/layout/page-header";
 import { requireSession } from "@/lib/auth/session.server";
 import { getDino } from "@/lib/dino/dino.server";
+import { getTodayMissions, toMissionItem } from "@/lib/missions/missions.server";
 import { readWorldState } from "@/lib/world/snapshot-reader.server";
 import { DinoSection } from "@/components/dino/dino-section";
 import { MissionsSection } from "@/components/missions/missions-section";
@@ -10,9 +11,11 @@ import { DungeonBanner } from "@/components/dungeon/dungeon-banner";
 
 export default async function HomePage() {
   const me = await requireSession();
-  const [dino, worldState] = await Promise.all([
+  const [dino, worldState, missions] = await Promise.all([
     getDino(me.id),
     readWorldState(),
+    // 오늘자 일일 미션이 아직 없으면 여기서 발급된다 (getTodayMissions 참조)
+    getTodayMissions(me.id),
   ]);
 
   return (
@@ -41,7 +44,7 @@ export default async function HomePage() {
           )}
 
           {/* 4. 미션 바텀시트 자리 — D11·D12 */}
-          <MissionsSection />
+          <MissionsSection missions={missions.map(toMissionItem)} />
         </div>
       </WorldStateProvider>
     </>

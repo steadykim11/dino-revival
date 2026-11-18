@@ -13,15 +13,10 @@
 
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DinoSpecies } from "@prisma/client";
+import { isDinoSpecies, type DinoSpecies } from "@/lib/dino/types";
 import { SPECIES_META } from "@/lib/dino/species";
+import { isValidName } from "@/lib/profile/name-rule";
 import { DinoDisplay } from "@/components/dino/dino-display";
-
-const NAME_REGEX = /^[가-힣a-zA-Z0-9]{2,12}$/;
-
-function isValidSpecies(value: string | null): value is DinoSpecies {
-  return value === "TYRANNO" || value === "BRACHIO" || value === "TRICERA";
-}
 
 export default function NamingPage() {
   const router = useRouter();
@@ -29,7 +24,7 @@ export default function NamingPage() {
   const speciesParam = params.get("species");
 
   useEffect(() => {
-    if (!isValidSpecies(speciesParam)) {
+    if (!isDinoSpecies(speciesParam)) {
       router.replace("/onboarding/egg");
       return;
     }
@@ -38,7 +33,7 @@ export default function NamingPage() {
     }
   }, [speciesParam, router]);
 
-  if (!isValidSpecies(speciesParam)) {
+  if (!isDinoSpecies(speciesParam)) {
     return null;
   }
 
@@ -54,7 +49,7 @@ function NamingForm({ species }: { species: DinoSpecies }) {
   const [submitting, setSubmitting] = useState(false);
 
   const trimmed = name.trim();
-  const isValid = NAME_REGEX.test(trimmed);
+  const isValid = isValidName(trimmed);
   const canSubmit = isValid && !submitting;
 
   async function handleSubmit(e: FormEvent) {

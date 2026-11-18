@@ -6,7 +6,7 @@
 //   NORMAL    → 검은 운석 (와이어프레임 기본)
 //   POLLUTED  → 화염구 (붉은 빛, 강렬한 형태)
 
-import type { Battlefield } from "@/lib/missions/reward-calculator";
+import type { Battlefield } from "@/lib/world/battlefield";
 
 export interface EnemyMeta {
   // 표시명 (SC-07 헤더에서 "{공룡}이 {적}을 물리쳤습니다")

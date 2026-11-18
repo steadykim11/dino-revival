@@ -5,7 +5,7 @@ import { buildDisplayFuelMix } from "@/lib/world/fuel-mix-display";
 import { battlefieldLabel } from "@/lib/world/battlefield";
 import { relativeTimeKo } from "@/lib/time/relative";
 import { FuelMixBar } from "./fuel-mix-bar";
-import { ForecastLevel } from "@/lib/types/world-snapshot";
+import { ForecastLevel } from "@/lib/world/types";
 
 export function CarbonClock() {
   const { data } = useWorldState();

@@ -5,8 +5,8 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DungeonBanner } from "@/components/dungeon/dungeon-banner";
-import type { DungeonState } from "@/lib/types/dungeon";
-import type { WorldStateResponse } from "@/lib/types/world-snapshot";
+import type { DungeonState } from "@/lib/dungeon/types";
+import type { WorldStateResponse } from "@/lib/world/types";
 import { CarbonClock } from "./carbon-clock";
 import { useWorldState, WorldStateProvider } from "./world-state-provider";
 

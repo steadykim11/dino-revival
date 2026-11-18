@@ -6,15 +6,16 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { requireSession } from "@/lib/auth/session.server";
-import { getDungeonMissions } from "@/lib/missions/missions.server";
+import { getDungeonMissions, toMissionItem } from "@/lib/missions/missions.server";
+import { DUNGEON_MULTIPLIER } from "@/lib/missions/reward-calculator";
 import { getLatestSnapshot } from "@/lib/world/snapshot-reader.server";
 import { getCurrentActiveDungeon } from "@/lib/dungeon/lifecycle.server";
 import { getGuildContribution } from "@/lib/dungeon/contribution.server";
-import { getBattlefield } from "@/lib/missions/reward-calculator";
+import { classifyBattlefield } from "@/lib/world/battlefield";
 import { ENEMY_META } from "@/lib/battle/enemy-types";
 import { DungeonEnemyBanner } from "@/components/dungeon/enemy-banner";
 import { DungeonPageClient } from "@/components/dungeon/dungeon-page-client";
-import type { MissionItem } from "@/components/missions/missions-bottom-sheet";
+import type { MissionItem } from "@/lib/missions/types";
 
 export const dynamic = "force-dynamic";
 
@@ -37,25 +38,17 @@ export default async function DungeonPage() {
   }
 
   const { carbonIntensity, supplyReserveRate } = snapshot;
-  const battlefield = getBattlefield(carbonIntensity);
+  const battlefield = classifyBattlefield(carbonIntensity);
   const enemy = ENEMY_META[battlefield];
 
   // 던전 미션 (이 dungeonId로 발급된 본인 미션)
   const missionRows = await getDungeonMissions(me.id, dungeon.id);
 
-  const missions: MissionItem[] = missionRows.map((m) => ({
-    id: m.id,
-    title: m.pool.title,
-    description: m.pool.description,
-    category: m.pool.category,
-    timeSlot: m.pool.timeSlot,
-    type: m.type,
-    // baseReward × 2 — 보상 2배 표기
-    // 실제 적립값은 서버 reward-calculator의 dungeonMultiplier=2.0이 보장
-    baseReward: m.pool.baseReward * 2,
-    estimatedKwh: m.pool.estimatedKwh.toString(),
-    completedAt: m.completedAt?.toISOString() ?? null,
-  }));
+  // 보상은 2배로 표기한다. 실제 적립값은 서버 reward-calculator의 DUNGEON_MULTIPLIER가 보장
+  const missions: MissionItem[] = missionRows.map((m) => {
+    const item = toMissionItem(m);
+    return { ...item, baseReward: item.baseReward * DUNGEON_MULTIPLIER };
+  });
 
   // 길드 기여도
   const contribution = await getGuildContribution(me.id, dungeon.id);

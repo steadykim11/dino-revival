@@ -1,16 +1,20 @@
-// lib/world/battlefield.ts
-import type { Battlefield } from "@/lib/types/world-snapshot";
+// 전장 분류 — 탄소강도(gCO₂/kWh) 구간. 임계값의 단일 출처.
+//
+// 화면의 전장 표시, 미션 보상 가중치(lib/missions/reward-calculator.ts),
+// 전투에 등장하는 적(lib/battle/enemy-types.ts)이 모두 이 분류를 쓴다.
+// DB에는 저장하지 않고 필요할 때 계산한다 (ADR 4).
 
-/**
- * 탄소강도(gCO₂/kWh)로부터 전장 상태 분류.
- * 게임 메커니즘 정책:
- *   < 300  → PURIFIED (가중치 1.0)
- *   < 500  → NORMAL   (가중치 1.2)
- *   else   → POLLUTED (가중치 1.5)
- */
+export type Battlefield = "PURIFIED" | "NORMAL" | "POLLUTED";
+
+/** 이 값 미만이면 해당 전장. NORMAL_BELOW 이상은 POLLUTED. */
+export const BATTLEFIELD_THRESHOLDS = {
+  PURIFIED_BELOW: 300,
+  NORMAL_BELOW: 500,
+} as const;
+
 export function classifyBattlefield(carbonIntensity: number): Battlefield {
-  if (carbonIntensity < 300) return "PURIFIED";
-  if (carbonIntensity < 500) return "NORMAL";
+  if (carbonIntensity < BATTLEFIELD_THRESHOLDS.PURIFIED_BELOW) return "PURIFIED";
+  if (carbonIntensity < BATTLEFIELD_THRESHOLDS.NORMAL_BELOW) return "NORMAL";
   return "POLLUTED";
 }
 

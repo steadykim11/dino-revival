@@ -2,7 +2,7 @@ import { z } from "zod";
 import { XMLParser } from "fast-xml-parser";
 import { fetchExternal, ExternalApiError } from "./http";
 import { getExternalEnv } from "@/lib/env";
-import { FuelMix, FuelMixSchema } from "@/lib/types/fuel-mix";
+import { FuelMix, FuelMixSchema } from "@/lib/world/fuel-mix";
 import { parseKpxDateTime } from "../time/kst";
 
 const RawItemSchema = z.object({

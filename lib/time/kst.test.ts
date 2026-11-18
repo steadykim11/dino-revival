@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getKstHour,
+  kstDateAsUtcMidnight,
   getKstMinute,
   kstNextMidnight,
   normalizeTo5Min,
@@ -83,5 +84,28 @@ describe("kstNextMidnight", () => {
     expect(
       kstNextMidnight(new Date("2026-05-31T16:00:00.000Z")).toISOString(),
     ).toBe("2026-06-01T15:00:00.000Z");
+  });
+});
+
+describe("kstDateAsUtcMidnight", () => {
+  it("KST 날짜를 UTC 자정으로 표현한다", () => {
+    expect(
+      kstDateAsUtcMidnight(new Date("2026-05-07T03:00:00.000Z")).toISOString(),
+    ).toBe("2026-05-07T00:00:00.000Z");
+  });
+
+  it("UTC 15:00(KST 자정)부터는 다음 날짜", () => {
+    expect(
+      kstDateAsUtcMidnight(new Date("2026-05-07T14:59:59.999Z")).toISOString(),
+    ).toBe("2026-05-07T00:00:00.000Z");
+    expect(
+      kstDateAsUtcMidnight(new Date("2026-05-07T15:00:00.000Z")).toISOString(),
+    ).toBe("2026-05-08T00:00:00.000Z");
+  });
+
+  it("같은 KST 날짜 안에서는 언제 호출해도 같은 값", () => {
+    const morning = kstDateAsUtcMidnight(new Date("2026-05-07T15:00:00.000Z"));
+    const night = kstDateAsUtcMidnight(new Date("2026-05-08T14:59:00.000Z"));
+    expect(morning.getTime()).toBe(night.getTime());
   });
 });
