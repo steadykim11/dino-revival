@@ -431,3 +431,65 @@ describe("20261124000000_snapshot_forecast_load", () => {
     ).toEqual([{ forecastLoad: null }, { forecastLoad: null }, { forecastLoad: 83456 }]);
   });
 });
+
+describe("20261124010000_mission_log_guild", () => {
+  const TARGET = "20261124010000_mission_log_guild";
+  const OTHER_GUILD = id(2);
+  const NO_GUILD_USER = id(11);
+  const [LOG_A, LOG_B, LOG_C] = [id(61), id(62), id(63)];
+  let db: PGlite;
+
+  // missionId 없는 완료 기록 (더미 기록과 같은 형태)
+  const log = (logId: string, userId: string) =>
+    `('${logId}', '${userId}', '미션', 'DAILY', 'ETC', 10, 0.1, 5, 'EGG', 'EGG')`;
+  const LOG_COLUMNS = `"id", "userId", "missionTitle", "missionType", "missionCategory", "cleanEnergyEarned", "co2ReducedKg", "intimacyEarned", "stageBefore", "stageAfter"`;
+
+  beforeAll(async () => {
+    db = new PGlite();
+    await applyUntil(db, TARGET);
+    await db.exec(`
+      INSERT INTO "guilds" ("id", "regionCode", "displayName")
+        VALUES ('${GUILD}', '11680', '강남구'), ('${OTHER_GUILD}', '11650', '서초구');
+      INSERT INTO "users" ("id", "nickname", "regionCode", "guildId", "updatedAt")
+        VALUES ('${USER}', '테스터', '11680', '${GUILD}', now()),
+               ('${NO_GUILD_USER}', '무소속', '99999', NULL, now());
+      INSERT INTO "mission_logs" (${LOG_COLUMNS})
+        VALUES ${log(LOG_A, USER)}, ${log(LOG_B, USER)}, ${log(LOG_C, NO_GUILD_USER)};
+    `);
+    await apply(db, TARGET);
+  }, 60_000);
+
+  const guildOf = async (logId: string) =>
+    (await rows<{ guildId: string | null }>(db, `SELECT "guildId" FROM "mission_logs" WHERE "id" = '${logId}'`))[0]
+      ?.guildId;
+
+  it("기존 기록에 사용자의 현재 길드를 채우고, 길드가 없던 사용자는 NULL로 둔다", async () => {
+    expect(await guildOf(LOG_A)).toBe(GUILD);
+    expect(await guildOf(LOG_B)).toBe(GUILD);
+    expect(await guildOf(LOG_C)).toBeNull();
+  });
+
+  it("사용자가 길드를 옮겨도 기존 기록의 길드는 바뀌지 않는다", async () => {
+    await db.exec(`UPDATE "users" SET "guildId" = '${OTHER_GUILD}' WHERE "id" = '${USER}'`);
+    expect(await guildOf(LOG_A)).toBe(GUILD);
+  });
+
+  it("(guildId, completedAt) 인덱스가 있다", async () => {
+    const indexes = await rows<{ indexname: string }>(
+      db,
+      `SELECT indexname FROM pg_indexes WHERE tablename = 'mission_logs' AND indexname = 'mission_logs_guildId_completedAt_idx'`,
+    );
+    expect(indexes).toHaveLength(1);
+  });
+
+  it("없는 길드는 가리킬 수 없고, 길드를 지우면 기록은 남고 guildId만 NULL이 된다", async () => {
+    await expect(
+      db.exec(`UPDATE "mission_logs" SET "guildId" = '${id(999)}' WHERE "id" = '${LOG_C}'`),
+    ).rejects.toThrow(/mission_logs_guildId_fkey/);
+
+    await db.exec(`UPDATE "users" SET "guildId" = NULL WHERE "guildId" = '${GUILD}'`);
+    await db.exec(`DELETE FROM "guilds" WHERE "id" = '${GUILD}'`);
+    expect(await guildOf(LOG_A)).toBeNull();
+    expect(await rows(db, `SELECT "id" FROM "mission_logs" ORDER BY "id"`)).toHaveLength(3);
+  });
+});

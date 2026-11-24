@@ -83,3 +83,17 @@ export function kstNextMidnight(now: Date): Date {
 export function kstDateAsUtcMidnight(d: Date): Date {
   return new Date(`${toKstDateString(d)}T00:00:00.000Z`);
 }
+
+/** UTC Date → KST의 "yyyy-MM" 문자열 (길드 시즌 키) */
+export function toKstMonthString(d: Date): string {
+  return toKstDateString(d).slice(0, 7);
+}
+
+/**
+ * KST 월("yyyy-MM")의 1일 00:00(KST)을 UTC Date로. addMonths로 앞뒤 달을 구한다.
+ * 예: kstMonthStart("2026-12") → 2026-11-30T15:00:00.000Z
+ */
+export function kstMonthStart(month: string, addMonths = 0): Date {
+  const [y, m] = month.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1 + addMonths, 1) - KST_OFFSET_MS);
+}

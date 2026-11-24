@@ -91,10 +91,13 @@ export async function seedDummyUsers(prisma: PrismaClient) {
   });
   console.log(`  → 기존 더미 MissionLog ${deleted.count}개 삭제`);
 
-  const allLogs = specs.flatMap((s) => s.missionLogs);
+  const allLogs = specs.flatMap((s) =>
+    s.missionLogs.map((log) => ({ ...log, guildId: s.guildId })),
+  );
   await prisma.missionLog.createMany({
     data: allLogs.map((log) => ({
       userId: log.userId,
+      guildId: log.guildId,
       missionId: log.missionId,
       missionTitle: log.missionTitle,
       missionType: log.missionType,

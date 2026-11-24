@@ -1,22 +1,22 @@
 // 탭 전환 — searchParam 기반. Link로 새 URL로 이동 (전체 리로드 x, RSC re-render)
-
-"use client";
+// 고른 시즌은 탭을 바꿔도 유지한다.
 
 import Link from "next/link";
-
-type Tab = "local" | "global";
+import { leaderboardHref, type LeaderboardTab } from "./href";
 
 interface LeaderboardTabsProps {
-  active: Tab;
+  active: LeaderboardTab;
+  /** 현재 ?season= 값 (이번 시즌이면 null) */
+  seasonParam: string | null;
 }
 
-export function LeaderboardTabs({ active }: LeaderboardTabsProps) {
+export function LeaderboardTabs({ active, seasonParam }: LeaderboardTabsProps) {
   return (
     <nav aria-label="리더보드 탭" className="flex rounded-xl bg-stone-100 p-1">
-      <TabLink href="/leaderboard?tab=local" active={active === "local"}>
+      <TabLink href={leaderboardHref("local", seasonParam)} active={active === "local"}>
         우리 동네
       </TabLink>
-      <TabLink href="/leaderboard?tab=global" active={active === "global"}>
+      <TabLink href={leaderboardHref("global", seasonParam)} active={active === "global"}>
         전국
       </TabLink>
     </nav>

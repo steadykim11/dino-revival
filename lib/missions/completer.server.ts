@@ -67,6 +67,8 @@ export async function completeMission(
     const mission = await tx.mission.findUnique({
       where: { id: missionId },
       include: {
+        // 완료 당시 소속 길드 — 시즌 점수는 이 길드에 쌓인다 (ADR 43)
+        user: { select: { guildId: true } },
         pool: {
           select: {
             title: true,
@@ -152,6 +154,7 @@ export async function completeMission(
         userId,
         missionId,
         dungeonId: mission.dungeonId,
+        guildId: mission.user.guildId,
         missionTitle: mission.pool.title,
         missionType: mission.type,
         missionCategory: mission.pool.category,

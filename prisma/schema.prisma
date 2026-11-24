@@ -143,11 +143,12 @@ model Guild {
 
   createdAt         DateTime @default(now())
 
-  // 길드 점수는 저장하지 않는다 — 길드원 Dino.totalCleanEnergy 합을 조회 시 계산
-  // (lib/guilds/ranking.ts)
+  // 길드 점수는 저장하지 않는다 — MissionLog.guildId 기준으로 시즌(KST 월)·누적
+  // cleanEnergyEarned 합을 조회 시 계산 (lib/guilds/score.server.ts, ADR 43)
 
   // Relations
   members           User[]
+  missionLogs       MissionLog[]
 
   @@map("guilds")
 }
@@ -254,6 +255,11 @@ model MissionLog {
   dungeonId                   String?      @db.Uuid
   dungeon                     Dungeon?     @relation(fields: [dungeonId], references: [id], onDelete: SetNull)
 
+  /// 완료 당시 소속 길드 (시즌 점수 집계용, ADR 43). 길드를 옮겨도 이 기록의 점수는 원래 길드에 남는다.
+  /// 길드가 없던 사용자이거나 길드가 삭제되면 NULL.
+  guildId                     String?      @db.Uuid
+  guild                       Guild?       @relation(fields: [guildId], references: [id], onDelete: SetNull)
+
   /// 완료 당시 미션 정보 스냅샷
   missionTitle                String       @db.VarChar(100)
   missionType                 MissionType
@@ -276,6 +282,7 @@ model MissionLog {
 
   @@index([userId, completedAt])
   @@index([dungeonId])
+  @@index([guildId, completedAt])
   @@map("mission_logs")
 }
 

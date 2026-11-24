@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   getKstHour,
   kstDateAsUtcMidnight,
+  kstMonthStart,
+  toKstMonthString,
   getKstMinute,
   kstNextMidnight,
   normalizeTo5Min,
@@ -107,5 +109,23 @@ describe("kstDateAsUtcMidnight", () => {
     const morning = kstDateAsUtcMidnight(new Date("2026-05-07T15:00:00.000Z"));
     const night = kstDateAsUtcMidnight(new Date("2026-05-08T14:59:00.000Z"));
     expect(morning.getTime()).toBe(night.getTime());
+  });
+});
+
+describe("toKstMonthString", () => {
+  it("KST 기준 월을 돌려준다", () => {
+    expect(toKstMonthString(new Date("2026-11-30T14:59:59.999Z"))).toBe("2026-11");
+    expect(toKstMonthString(new Date("2026-11-30T15:00:00.000Z"))).toBe("2026-12"); // KST 12/1 00:00
+  });
+});
+
+describe("kstMonthStart", () => {
+  it("KST 1일 자정을 UTC로", () => {
+    expect(kstMonthStart("2026-12").toISOString()).toBe("2026-11-30T15:00:00.000Z");
+  });
+
+  it("앞뒤 달, 연도 경계", () => {
+    expect(kstMonthStart("2026-12", 1).toISOString()).toBe("2026-12-31T15:00:00.000Z");
+    expect(kstMonthStart("2026-01", -1).toISOString()).toBe("2025-11-30T15:00:00.000Z");
   });
 });
