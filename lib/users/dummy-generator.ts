@@ -6,7 +6,7 @@
 // - Dino 단계·cleanEnergy: 인덱스 hash 분포 (EGG 20%, HATCHLING 50%, ADULT 30%)
 // - 과거 MissionLog 5~20개를 임의 날짜·보상으로 시드
 
-import { createHash } from "node:crypto";
+import { hashInt, hashRangeOf, hashToUuid } from "./dummy-hash";
 import type {
   DinoStage,
   MissionCategory,
@@ -77,27 +77,17 @@ function generateNickname(i: number): string {
 // UUID v4 형식 문자열
 // 시드 재실행해도 같은 사용자에게 같은 ID 보장 (upsert로 idempotent)
 function generateDummyUuid(i: number): string {
-  const hash = createHash("sha256").update(`dino-dummy-${i}`).digest("hex");
-  return [
-    hash.slice(0, 8),
-    hash.slice(8, 12),
-    "4" + hash.slice(13, 16),
-    "8" + hash.slice(17, 20),
-    hash.slice(20, 32),
-  ].join("-");
+  return hashToUuid(`dino-dummy-${i}`);
 }
 
 // 인덱스 -> 0~99 정수 (분포용)
 function hashPercent(i: number, salt: string): number {
-  const hash = createHash("sha256").update(`${salt}-${i}`).digest("hex");
-  return parseInt(hash.slice(0, 8), 16) % 100;
+  return hashInt(`${salt}-${i}`) % 100;
 }
 
 // 인덱스 -> 범위 안 정수
 function hashRange(i: number, salt: string, min: number, max: number): number {
-  const hash = createHash("sha256").update(`${salt}-${i}`).digest("hex");
-  const span = max - min + 1;
-  return min + (parseInt(hash.slice(0, 8), 16) % span);
+  return hashRangeOf(`${salt}-${i}`, min, max);
 }
 
 // dino 단계, cleanEnergy 분포
