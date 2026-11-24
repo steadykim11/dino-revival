@@ -97,3 +97,15 @@ export function kstMonthStart(month: string, addMonths = 0): Date {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1 + addMonths, 1) - KST_OFFSET_MS);
 }
+
+/** KST 날짜("yyyy-MM-dd") + 시·분(KST) → UTC Date */
+export function kstDateTime(date: string, hour: number, minute: number): Date {
+  const hh = String(hour).padStart(2, "0");
+  const mm = String(minute).padStart(2, "0");
+  return new Date(`${date}T${hh}:${mm}:00+09:00`);
+}
+
+/** UTC Date → n일 전(음수면 후)의 KST "yyyy-MM-dd" */
+export function kstDateStringDaysAgo(d: Date, days: number): string {
+  return toKstDateString(new Date(d.getTime() - days * 24 * 60 * 60 * 1000));
+}

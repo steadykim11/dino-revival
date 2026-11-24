@@ -2,6 +2,7 @@
 //
 //   1) KPX 호출 → world_snapshots에 UPSERT
 //   2) 던전 모니터 (만료 정리 + 예비율 기준 자동 발령)
+//   3) 더미 사용자 활동 기록 (길드 시즌 점수용, ADR 44). 실패해도 종료 코드에는 반영하지 않는다.
 //
 // KPX가 클라우드 IP를 차단하므로 가정용 회선(홈서버 또는 개인 PC)에서 실행한다.
 // Next.js와 무관한 독립 스크립트이며 DB에 직접 기록한다.
@@ -18,6 +19,7 @@
 import { fetchWorldSnapshot } from "@/lib/external/kpx";
 import { monitorDungeon } from "@/lib/dungeon/monitor.server";
 import { prisma } from "@/lib/prisma";
+import { recordDummyActivity } from "@/lib/users/dummy-activity.server";
 import { captureWorldSnapshot } from "@/lib/world/snapshot-writer.server";
 
 function report(fields: Record<string, unknown>) {
@@ -50,6 +52,11 @@ async function run(): Promise<number> {
     error: err instanceof Error ? err.message : String(err),
   }));
 
+  // 시연용 데이터라 실패해도 수집 결과(종료 코드)에는 반영하지 않는다.
+  const dummyActivity = await recordDummyActivity().catch((err: unknown) => ({
+    error: err instanceof Error ? err.message : String(err),
+  }));
+
   report({
     snapshot:
       snapshot.kind === "success"
@@ -64,6 +71,7 @@ async function run(): Promise<number> {
             lastTs: snapshot.lastTs?.toISOString() ?? null,
           },
     dungeon,
+    dummyActivity,
     elapsedMs: Date.now() - startedAt,
   });
 

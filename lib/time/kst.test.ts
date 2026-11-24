@@ -3,6 +3,8 @@ import {
   getKstHour,
   kstDateAsUtcMidnight,
   kstMonthStart,
+  kstDateTime,
+  kstDateStringDaysAgo,
   toKstMonthString,
   getKstMinute,
   kstNextMidnight,
@@ -127,5 +129,18 @@ describe("kstMonthStart", () => {
   it("앞뒤 달, 연도 경계", () => {
     expect(kstMonthStart("2026-12", 1).toISOString()).toBe("2026-12-31T15:00:00.000Z");
     expect(kstMonthStart("2026-01", -1).toISOString()).toBe("2025-11-30T15:00:00.000Z");
+  });
+});
+
+describe("kstDateTime / kstDateStringDaysAgo", () => {
+  it("KST 날짜·시각을 UTC로", () => {
+    expect(kstDateTime("2026-11-24", 8, 5).toISOString()).toBe("2026-11-23T23:05:00.000Z");
+  });
+
+  it("KST 기준으로 n일 전 날짜", () => {
+    const kstEarly = new Date("2026-11-23T15:30:00.000Z"); // KST 11/24 00:30
+    expect(kstDateStringDaysAgo(kstEarly, 0)).toBe("2026-11-24");
+    expect(kstDateStringDaysAgo(kstEarly, 1)).toBe("2026-11-23");
+    expect(kstDateStringDaysAgo(new Date("2026-12-01T00:00:00.000Z"), 1)).toBe("2026-11-30");
   });
 });
