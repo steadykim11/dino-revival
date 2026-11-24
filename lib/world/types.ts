@@ -13,6 +13,7 @@ export type WorldSnapshotData = {
   supplyReserveRate: number; // %
   supplyCapacity: number; // MW
   currentLoad: number; // MW
+  forecastLoad: number; // MW (당일 최대 예측 수요)
   fuelMix: FuelMix;
 };
 
@@ -26,10 +27,10 @@ export type WorldSnapshotData = {
 
 export type ForecastLevel = "LOW" | "MEDIUM" | "HIGH";
 
+/** 오늘의 예상 최대부하. level은 최근 7일 예측치가 모자라면 null (lib/world/peak-forecast.ts) */
 export interface TodayForecastResponse {
   peakLoadGW: number;
-  level: ForecastLevel;
-  weeklyRank: number;
+  level: ForecastLevel | null;
 }
 
 export interface WorldStateResponse {

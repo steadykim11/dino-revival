@@ -1,60 +1,101 @@
 import { describe, expect, it } from "vitest";
-import { LATEST_WEEKLY_FORECAST } from "@/lib/static-data/weekly-peak-forecast";
-import { classifyForecastLevel, getTodayForecast } from "./peak-forecast";
+import {
+  buildTodayForecast,
+  classifyForecastLevel,
+  dailyForecasts,
+  forecastWindowStart,
+} from "./peak-forecast";
 
-const week = [
-  { date: "2026-01-01", peakLoadGW: 60 },
-  { date: "2026-01-02", peakLoadGW: 64 },
-  { date: "2026-01-03", peakLoadGW: 70 },
-  { date: "2026-01-04", peakLoadGW: 76 },
-  { date: "2026-01-05", peakLoadGW: 80 },
-];
+// KST 2026-11-24 15:00
+const NOW = new Date("2026-11-24T06:00:00.000Z");
 
-describe("classifyForecastLevel", () => {
-  it("주간 최고치는 항상 HIGH, 최저치는 항상 LOW", () => {
-    expect(classifyForecastLevel(80, week)).toBe("HIGH");
-    expect(classifyForecastLevel(60, week)).toBe("LOW");
-  });
+/** KST 날짜 + 시각 → 예측 지점 */
+const at = (kst: string, forecastLoad: number) => ({
+  ts: new Date(`${kst}+09:00`),
+  forecastLoad,
+});
 
-  it("그 외는 절대값 기준: <65 LOW, 65~75 MEDIUM, ≥75 HIGH", () => {
-    expect(classifyForecastLevel(64, week)).toBe("LOW");
-    expect(classifyForecastLevel(70, week)).toBe("MEDIUM");
-    expect(classifyForecastLevel(76, week)).toBe("HIGH");
-  });
+/** 11/17~11/23 일별 예측치 (MW) */
+const PAST_WEEK = [70000, 72000, 74000, 76000, 78000, 80000, 82000].map(
+  (load, i) => at(`2026-11-${17 + i}T12:00:00`, load),
+);
 
-  it("절대값이 낮아도 주간 최고치면 HIGH", () => {
-    const lowWeek = [
-      { date: "2026-04-01", peakLoadGW: 55 },
-      { date: "2026-04-02", peakLoadGW: 58 },
-      { date: "2026-04-03", peakLoadGW: 61 },
-    ];
-    expect(classifyForecastLevel(61, lowWeek)).toBe("HIGH");
-    expect(classifyForecastLevel(58, lowWeek)).toBe("LOW");
+describe("forecastWindowStart", () => {
+  it("오늘 포함 8일 전 KST 자정을 돌려준다", () => {
+    expect(forecastWindowStart(NOW).toISOString()).toBe(
+      "2026-11-16T15:00:00.000Z", // KST 11/17 00:00
+    );
   });
 });
 
-describe("getTodayForecast", () => {
-  const { days } = LATEST_WEEKLY_FORECAST;
+describe("dailyForecasts", () => {
+  it("KST 날짜별로 그날 마지막 값을 쓴다", () => {
+    const byDay = dailyForecasts([
+      at("2026-11-24T10:00:00", 81000),
+      at("2026-11-24T08:00:00", 80000),
+      at("2026-11-23T23:55:00", 79000), // KST로는 11/23
+    ]);
+    expect([...byDay]).toEqual([
+      ["2026-11-23", 79000],
+      ["2026-11-24", 81000],
+    ]);
+  });
+});
 
-  it("자료에 있는 날짜면 부하·레벨·주간 순위를 돌려준다", () => {
-    const top = [...days].sort((a, b) => b.peakLoadGW - a.peakLoadGW)[0];
-    // KST 정오
-    const result = getTodayForecast(new Date(`${top.date}T03:00:00.000Z`));
-    expect(result).toEqual({
-      peakLoadGW: top.peakLoadGW,
-      level: "HIGH",
-      weeklyRank: 1,
-    });
+describe("classifyForecastLevel", () => {
+  const past = [70, 72, 74, 76, 78, 80, 82];
+
+  it("과거 7일 중 5일보다 높으면 HIGH", () => {
+    expect(classifyForecastLevel(79, past)).toBe("HIGH");
+    expect(classifyForecastLevel(90, past)).toBe("HIGH");
   });
 
-  it("날짜 판정은 KST 기준", () => {
-    const first = days[0];
-    // 첫 날짜의 KST 00:30 = UTC 전날 15:30
-    const kstEarly = new Date(`${first.date}T00:30:00+09:00`);
-    expect(getTodayForecast(kstEarly)?.peakLoadGW).toBe(first.peakLoadGW);
+  it("과거 7일 중 5일보다 낮으면 LOW", () => {
+    expect(classifyForecastLevel(73, past)).toBe("LOW");
+    expect(classifyForecastLevel(60, past)).toBe("LOW");
   });
 
-  it("자료 범위 밖 날짜면 null", () => {
-    expect(getTodayForecast(new Date("2000-01-01T03:00:00.000Z"))).toBeNull();
+  it("그 사이는 MEDIUM", () => {
+    expect(classifyForecastLevel(76, past)).toBe("MEDIUM");
+    expect(classifyForecastLevel(77, past)).toBe("MEDIUM");
+  });
+
+  it("과거 값이 7일치 안 되면 null", () => {
+    expect(classifyForecastLevel(90, past.slice(1))).toBeNull();
+    expect(classifyForecastLevel(90, [])).toBeNull();
+  });
+});
+
+describe("buildTodayForecast", () => {
+  it("오늘 마지막 예측치를 GW로 바꾸고 과거 7일과 비교한다", () => {
+    const result = buildTodayForecast(
+      [...PAST_WEEK, at("2026-11-24T09:00:00", 83456)],
+      NOW,
+    );
+    expect(result).toEqual({ peakLoadGW: 83.5, level: "HIGH" });
+  });
+
+  it("오늘 수집된 예측치가 없으면 null", () => {
+    expect(buildTodayForecast(PAST_WEEK, NOW)).toBeNull();
+  });
+
+  it("과거 기록이 모자라면 값만 내고 레벨은 null", () => {
+    const result = buildTodayForecast(
+      [...PAST_WEEK.slice(3), at("2026-11-24T09:00:00", 75000)],
+      NOW,
+    );
+    expect(result).toEqual({ peakLoadGW: 75, level: null });
+  });
+
+  it("8일보다 오래된 값은 비교에서 뺀다", () => {
+    const result = buildTodayForecast(
+      [
+        at("2026-11-10T12:00:00", 99000),
+        ...PAST_WEEK,
+        at("2026-11-24T09:00:00", 71000),
+      ],
+      NOW,
+    );
+    expect(result?.level).toBe("LOW");
   });
 });

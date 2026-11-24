@@ -34,6 +34,7 @@ async function dryRun(): Promise<number> {
     carbonIntensity: data.carbonIntensity,
     supplyReserveRate: data.supplyReserveRate,
     currentLoad: data.currentLoad,
+    forecastLoad: data.forecastLoad,
   });
   return 0;
 }

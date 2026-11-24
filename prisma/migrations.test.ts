@@ -396,3 +396,38 @@ describe("20261117010000_drop_redundant_columns", () => {
     ).rejects.toThrow(/world_snapshots_pkey/);
   });
 });
+
+describe("20261124000000_snapshot_forecast_load", () => {
+  const TARGET = "20261124000000_snapshot_forecast_load";
+  let db: PGlite;
+
+  beforeAll(async () => {
+    db = new PGlite();
+    await applyUntil(db, TARGET);
+    await db.exec(`
+      INSERT INTO "world_snapshots" ("ts", "carbonIntensity", "supplyReserveRate", "supplyCapacity", "currentLoad", "fuelMix")
+        VALUES ('2026-11-24T06:00:00.000Z', 461.72, 33.25, 97002, 72796, '{}');
+    `);
+    await apply(db, TARGET);
+  }, 60_000);
+
+  it("기존 행은 그대로 두고 forecastLoad를 NULL로 채운다", async () => {
+    expect(
+      await rows(db, `SELECT "currentLoad", "forecastLoad" FROM "world_snapshots"`),
+    ).toEqual([{ currentLoad: 72796, forecastLoad: null }]);
+  });
+
+  it("이전 코드처럼 forecastLoad 없이도 기록할 수 있다", async () => {
+    await db.exec(`
+      INSERT INTO "world_snapshots" ("ts", "carbonIntensity", "supplyReserveRate", "supplyCapacity", "currentLoad", "fuelMix")
+        VALUES ('2026-11-24T06:20:00.000Z', 1, 1, 1, 1, '{}');
+    `);
+    await db.exec(`
+      INSERT INTO "world_snapshots" ("ts", "carbonIntensity", "supplyReserveRate", "supplyCapacity", "currentLoad", "fuelMix", "forecastLoad")
+        VALUES ('2026-11-24T06:40:00.000Z', 1, 1, 1, 1, '{}', 83456);
+    `);
+    expect(
+      await rows(db, `SELECT "forecastLoad" FROM "world_snapshots" ORDER BY "ts"`),
+    ).toEqual([{ forecastLoad: null }, { forecastLoad: null }, { forecastLoad: 83456 }]);
+  });
+});

@@ -4,7 +4,7 @@ import { FuelMixSchema, type FuelMix } from "@/lib/world/fuel-mix";
 import type { WorldStateResponse } from "@/lib/world/types";
 import { classifyBattlefield, type Battlefield } from "./battlefield";
 import { isSnapshotStale } from "./staleness";
-import { getTodayForecast } from "./peak-forecast";
+import { buildTodayForecast, forecastWindowStart } from "./peak-forecast";
 import type { DungeonState } from "@/lib/dungeon/types";
 
 /**
@@ -91,11 +91,16 @@ function buildDungeonState(dungeon: Dungeon | null, now: Date): DungeonState {
 export async function readWorldState(): Promise<WorldStateResponse | null> {
   const now = new Date();
 
-  const [snapshot, dungeon] = await Promise.all([
+  const [snapshot, dungeon, forecastRows] = await Promise.all([
     prisma.worldSnapshot.findFirst({ orderBy: { ts: "desc" } }),
     prisma.dungeon.findFirst({
       where: { isActive: true, expiresAt: { gt: now } },
       orderBy: { activatedAt: "desc" },
+    }),
+    // 오늘 + 과거 7일의 예측치 (하루 72행, 최대 약 580행)
+    prisma.worldSnapshot.findMany({
+      where: { ts: { gte: forecastWindowStart(now) }, forecastLoad: { not: null } },
+      select: { ts: true, forecastLoad: true },
     }),
   ]);
 
@@ -106,7 +111,12 @@ export async function readWorldState(): Promise<WorldStateResponse | null> {
   const carbonIntensity = toNum(snapshot.carbonIntensity);
   const battlefield: Battlefield = classifyBattlefield(carbonIntensity);
 
-  const todayForecast = getTodayForecast(now);
+  const todayForecast = buildTodayForecast(
+    forecastRows.flatMap((r) =>
+      r.forecastLoad === null ? [] : [{ ts: r.ts, forecastLoad: r.forecastLoad }],
+    ),
+    now,
+  );
 
   return {
     ts: snapshot.ts.toISOString(),

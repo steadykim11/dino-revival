@@ -332,7 +332,10 @@ model WorldSnapshot {
   /// 현재부하 (MW)
   currentLoad            Int
 
-  /// 발전믹스 (12개 발전원 MW, JSON). 키는 lib/types/fuel-mix.ts의 FuelMixSchema
+  /// 당일 최대 예측 수요 (MW, KPX D1 forecastLoad). 이 컬럼을 추가하기 전 행은 NULL (ADR 42)
+  forecastLoad           Int?
+
+  /// 발전믹스 (12개 발전원 MW, JSON). 키는 lib/world/fuel-mix.ts의 FuelMixSchema
   fuelMix                Json
 
   createdAt              DateTime  @default(now())

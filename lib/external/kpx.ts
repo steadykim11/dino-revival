@@ -60,6 +60,7 @@ export async function fetchWorldSnapshot(): Promise<WorldSnapshotData> {
     supplyReserveRate: Math.round(d1.supplyReserveRate * 100) / 100,
     supplyCapacity: Math.round(d1.supplyCapacity),
     currentLoad: Math.round(d1.currentLoad),
+    forecastLoad: Math.round(d1.forecastLoad),
     fuelMix: d2.fuelMix,
   };
 }

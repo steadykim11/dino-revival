@@ -69,8 +69,10 @@ export function CarbonClock() {
   );
 }
 
-function forecastLevelColor(level: ForecastLevel): string {
+function forecastLevelColor(level: ForecastLevel | null): string {
   switch (level) {
+    case null:
+      return "text-stone-800"; // 비교할 과거 기록이 아직 모자람
     case "LOW":
       return "text-emerald-700";
     case "MEDIUM":

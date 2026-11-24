@@ -42,6 +42,7 @@ const ResponseSchema = z.object({
 export type KpxD1Result = {
   ts: Date;
   currentLoad: number; // MW
+  forecastLoad: number; // MW (당일 최대 예측 수요)
   supplyCapacity: number; // MW
   supplyReserveRate: number; // % (공급예비율 사용)
   operReserveRate: number; // % (운영예비율, 던전 트리거에 활용 가능)
@@ -119,6 +120,7 @@ export async function fetchKpxD1(): Promise<KpxD1Result> {
   return {
     ts: parseKpxDateTime(item.baseDatetime),
     currentLoad: item.currPwrTot,
+    forecastLoad: item.forecastLoad,
     supplyCapacity: item.suppAbility,
     supplyReserveRate: item.suppReserveRate,
     operReserveRate: item.operReserveRate,
