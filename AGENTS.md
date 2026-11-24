@@ -60,7 +60,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 ## 인프라
 
 - Vercel은 호스팅만 맡는다. Vercel Cron과 수집용 API 라우트는 없다.
-- 수집은 GitHub Actions가 한다. `.github/workflows/collect.yml`이 20분마다 `jobs/collect.ts`를 실행해 KPX를 호출하고 DB에 직접 기록한 뒤 던전 모니터를 돌린다 (ADR 24·26). Secrets는 `DATABASE_URL`, `KPX_API_KEY`. **공공데이터포털 한도는 API당 하루 100회**라 주기를 20분(하루 72회)으로 둔다 — 주기를 줄이거나 재시도를 늘리기 전에 이 한도를 확인할 것.
+- 수집은 GitHub Actions가 한다. `.github/workflows/collect.yml`이 20분마다 `jobs/collect.ts`를 실행해 KPX를 호출하고 DB에 직접 기록한 뒤 던전 모니터를 돌리고 더미 사용자 활동을 기록한다 (ADR 24·26·44). Secrets는 `DATABASE_URL`, `KPX_API_KEY`. **공공데이터포털 한도는 API당 하루 100회**라 주기를 20분(하루 72회)으로 둔다 — 주기를 줄이거나 재시도를 늘리기 전에 이 한도를 확인할 것.
 - `jobs/`는 Next와 무관하게 `tsx`로 실행된다. 여기서 import하는 `lib` 코드는 Next 전용 API(`next/headers`, `server-only` 등)에 의존하면 안 된다.
 - GitHub의 schedule은 정시를 보장하지 않는다(지연·건너뜀 가능). 로컬에서는 `pnpm job:collect`로 1회 실행할 수 있고, `--dry-run`을 붙이면 DB에 쓰지 않는다. 이전의 "KPX가 클라우드 IP를 차단한다"는 제약은 새 주소(`apis.data.go.kr`)에는 해당하지 않는다 (ADR 25).
 - 일일 미션은 자정 cron 없이 홈 화면을 열 때 발급된다 (`getTodayMissions`).
@@ -74,7 +74,7 @@ pnpm db:migrate   # prisma migrate dev (.env.local 사용)
 | 2 | 구조 전반부: DB 접근을 `lib`으로 모으기(규칙 1), 세션 헬퍼(규칙 3) | 완료 |
 | 3 | DB 정합성: 유니크 제약, 행 잠금, 중복 컬럼·캐시 테이블 정리 | 완료 (운영 DB 적용 확인 2026-11-17) |
 | 4 | 구조 후반부: 규칙 2·4·5, 타입·파일 재배치, ADR 정리 | 완료 (2026-11-18) |
-| 5 | 기능 추가 | 진행 중 (5-A 예상 피크: ADR 42, 5-B 길드 시즌: ADR 43) |
+| 5 | 기능 추가 | 진행 중 (5-A 예상 피크: ADR 42, 5-B 길드 시즌: ADR 43, 5-C 더미 활동: ADR 44) |
 
 단계를 마치면 이 표의 상태를 갱신한다.
 
